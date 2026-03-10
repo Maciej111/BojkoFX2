@@ -14,6 +14,22 @@ Trailing stop support (2026-03-08):
     - From that point SL trails: never goes back, only moves in direction of trade
   TP remains unchanged.
   Exit reason "TS" (trailing stop) is used when trailing SL is hit.
+
+Slippage model (2026-03-10):
+  slippage_cfg = {
+      "entry_pips": float,   # slippage at entry (default 0.0)
+      "exit_pips":  float,   # slippage at SL/TP/TS exit (default 0.0)
+      "pip_size":   float,   # price per pip (default 0.0001)
+  }
+  When slippage_cfg is None or pips = 0, results are identical to the
+  pre-slippage baseline (backward compatible).
+
+  LONG entry:  actual_fill = entry_price + entry_pips * pip_size
+  SHORT entry: actual_fill = entry_price - entry_pips * pip_size
+  SL exit (LONG):  actual_exit = sl_price - exit_pips * pip_size
+  SL exit (SHORT): actual_exit = sl_price + exit_pips * pip_size
+  TP exit (LONG):  actual_exit = tp_price - exit_pips * pip_size
+  TP exit (SHORT): actual_exit = tp_price + exit_pips * pip_size
 """
 from __future__ import annotations
 
@@ -22,6 +38,30 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 from .signals_bos_pullback import ClosedTrade, TradeSetup
+
+
+# ── Slippage helpers ──────────────────────────────────────────────────────────
+
+def _slip_entry(side: str, price: float, pips: float, pip_size: float) -> float:
+    """Apply entry slippage: worse fill for buyer (LONG) or seller (SHORT)."""
+    if pips == 0.0:
+        return price
+    delta = pips * pip_size
+    return price + delta if side == "LONG" else price - delta
+
+
+def _slip_exit(side: str, price: float, pips: float, pip_size: float,
+               reason: str) -> float:
+    """
+    Apply exit slippage: worse exit price.
+    SL/TS exits: LONG gets lower price, SHORT gets higher price.
+    TP  exits:   LONG gets lower price, SHORT gets higher price.
+    (Both are always adverse to the position holder.)
+    """
+    if pips == 0.0:
+        return price
+    delta = pips * pip_size
+    return price - delta if side == "LONG" else price + delta
 
 
 # ── Position sizing ───────────────────────────────────────────────────────────
@@ -207,6 +247,7 @@ class PortfolioSimulator:
         max_positions_per_symbol: int = 1,
         initial_equity: float = 10_000.0,
         trail_cfg: Optional[dict] = None,
+        slippage_cfg: Optional[dict] = None,
     ):
         self.h1 = h1_data
         self.setups = setups
@@ -216,10 +257,19 @@ class PortfolioSimulator:
         self.max_total = max_positions_total
         self.max_per_sym = max_positions_per_symbol
         self.equity = initial_equity
-        self.trail_cfg = trail_cfg   # None = disabled
+        self.trail_cfg = trail_cfg    # None = disabled
+        # Slippage — resolve to concrete values
+        if slippage_cfg is not None:
+            self._slip_entry_pips = float(slippage_cfg.get("entry_pips", 0.0))
+            self._slip_exit_pips  = float(slippage_cfg.get("exit_pips",  0.0))
+            self._pip_size        = float(slippage_cfg.get("pip_size",   0.0001))
+        else:
+            self._slip_entry_pips = 0.0
+            self._slip_exit_pips  = 0.0
+            self._pip_size        = 0.0001
 
     def run(self) -> List[ClosedTrade]:
-        """Bar-by-bar simulation with optional trailing stop."""
+        """Bar-by-bar simulation with optional trailing stop and slippage."""
         sym_arrays: Dict[str, dict] = {}
         for sym, df in self.h1.items():
             idx_list = list(df.index)
@@ -245,18 +295,22 @@ class PortfolioSimulator:
         }
         pending_ptr: Dict[str, int] = {sym: 0 for sym in pending}
 
-        # Active: sym -> (setup, fill_bar_i, units, fill_ts, trail_sl, trail_activated)
+        # Active: sym -> (setup, fill_bar_i, units, fill_ts, trail_sl, trail_activated, actual_entry)
+        # actual_entry = fill price after entry slippage (= setup.entry_price when slippage=0)
         active: Dict[str, tuple] = {}
         waiting: Dict[str, list] = {sym: [] for sym in self.h1}
         closed: List[ClosedTrade] = []
 
-        use_trail = self.trail_cfg is not None
+        use_trail   = self.trail_cfg is not None
+        slip_en     = self._slip_entry_pips
+        slip_ex     = self._slip_exit_pips
+        pip_sz      = self._pip_size
 
         for ts in all_ts:
             # ── Exits ──────────────────────────────────────────────────────
             to_close = []
             for sym, pos in active.items():
-                setup, fill_bar_i, units, fill_ts, trail_sl, trail_activated = pos
+                setup, fill_bar_i, units, fill_ts, trail_sl, trail_activated, actual_entry = pos
                 arr = sym_arrays[sym]
                 i = arr["ts_to_i"].get(ts)
                 if i is None:
@@ -273,14 +327,13 @@ class PortfolioSimulator:
                         h, lo, self.trail_cfg,
                     )
                     active[sym] = (setup, fill_bar_i, units, fill_ts,
-                                   new_trail_sl, new_activated)
+                                   new_trail_sl, new_activated, actual_entry)
 
                     if new_activated:
                         result = try_exit_with_trail(
                             setup, new_trail_sl, h, lo, self.same_bar_mode
                         )
                     else:
-                        # Trail not yet active: use original SL
                         result = try_exit(setup, o, h, lo, c, self.same_bar_mode)
                         if result and result[0] == "SL":
                             result = ("SL", setup.sl_price)
@@ -288,31 +341,44 @@ class PortfolioSimulator:
                     result = try_exit(setup, o, h, lo, c, self.same_bar_mode)
 
                 if result:
-                    reason, exit_px = result
-                    risk = abs(setup.entry_price - setup.sl_price)
-                    # Compute realized R
+                    reason, exit_px_planned = result
+                    # Apply exit slippage (always adverse to position holder)
+                    exit_px = _slip_exit(setup.side, exit_px_planned,
+                                         slip_ex, pip_sz, reason)
+
+                    risk = abs(actual_entry - setup.sl_price)
+                    # R calculated from actual fill price
                     if reason == "TP":
-                        r_mult = setup.rr
-                    elif reason in ("SL", "TS"):
-                        if risk > 0:
+                        # TP R adjusted for entry slippage
+                        planned_risk = abs(setup.entry_price - setup.sl_price)
+                        if planned_risk > 0:
                             if setup.side == "LONG":
-                                r_mult = (exit_px - setup.entry_price) / risk
+                                r_mult = (exit_px - actual_entry) / planned_risk
                             else:
-                                r_mult = (setup.entry_price - exit_px) / risk
+                                r_mult = (actual_entry - exit_px) / planned_risk
+                        else:
+                            r_mult = setup.rr
+                    elif reason in ("SL", "TS"):
+                        planned_risk = abs(setup.entry_price - setup.sl_price)
+                        if planned_risk > 0:
+                            if setup.side == "LONG":
+                                r_mult = (exit_px - actual_entry) / planned_risk
+                            else:
+                                r_mult = (actual_entry - exit_px) / planned_risk
                         else:
                             r_mult = -1.0
                     else:
                         r_mult = 0.0
 
                     if setup.side == "LONG":
-                        pnl = (exit_px - setup.entry_price) * units
+                        pnl = (exit_px - actual_entry) * units
                     else:
-                        pnl = (setup.entry_price - exit_px) * units
+                        pnl = (actual_entry - exit_px) * units
                     self.equity += pnl
 
                     closed.append(ClosedTrade(
                         symbol=sym, side=setup.side,
-                        entry_ts=fill_ts, entry_price=setup.entry_price,
+                        entry_ts=fill_ts, entry_price=actual_entry,
                         exit_ts=ts, exit_price=exit_px, exit_reason=reason,
                         sl_price=setup.sl_price, tp_price=setup.tp_price,
                         bos_level=setup.bos_level, rr=setup.rr,
@@ -357,9 +423,12 @@ class PortfolioSimulator:
                         n_open = len(active)
                         if (self.max_total is None or n_open < self.max_total) and \
                                 len([s for s in active if s == sym]) < self.max_per_sym:
-                            # Init trailing state: trail_sl = setup.sl_price, not yet active
+                            # Apply entry slippage to actual fill price
+                            actual_entry = _slip_entry(setup.side, setup.entry_price,
+                                                       slip_en, pip_sz)
+                            # active tuple extended with actual_entry (7th element)
                             active[sym] = (setup, i, units, ts,
-                                           setup.sl_price, False)
+                                           setup.sl_price, False, actual_entry)
                             continue
                     new_waiting.append((setup, units, created_ts))
                 waiting[sym] = new_waiting
@@ -379,26 +448,26 @@ class PortfolioSimulator:
 
         # Expire open at end of period
         for sym, pos in active.items():
-            setup, fill_bar_i, units, fill_ts, trail_sl, trail_activated = pos
+            setup, fill_bar_i, units, fill_ts, trail_sl, trail_activated, actual_entry = pos
             arr = sym_arrays[sym]
             last_i = arr["n"] - 1
             exit_px = arr["close"][last_i]
-            risk = abs(setup.entry_price - setup.sl_price)
-            if risk > 0:
+            planned_risk = abs(setup.entry_price - setup.sl_price)
+            if planned_risk > 0:
                 if setup.side == "LONG":
-                    r_mult = (exit_px - setup.entry_price) / risk
+                    r_mult = (exit_px - actual_entry) / planned_risk
                 else:
-                    r_mult = (setup.entry_price - exit_px) / risk
+                    r_mult = (actual_entry - exit_px) / planned_risk
             else:
                 r_mult = 0.0
             if setup.side == "LONG":
-                pnl = (exit_px - setup.entry_price) * units
+                pnl = (exit_px - actual_entry) * units
             else:
-                pnl = (setup.entry_price - exit_px) * units
+                pnl = (actual_entry - exit_px) * units
 
             closed.append(ClosedTrade(
                 symbol=sym, side=setup.side,
-                entry_ts=fill_ts, entry_price=setup.entry_price,
+                entry_ts=fill_ts, entry_price=actual_entry,
                 exit_ts=arr["ts"][last_i], exit_price=exit_px,
                 exit_reason="TTL",
                 sl_price=setup.sl_price, tp_price=setup.tp_price,

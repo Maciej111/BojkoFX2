@@ -1,7 +1,18 @@
 """
 Trend Following Strategy v1
-BOS + Pullback Entry with HTF Bias - SIMPLIFIED VERSION
+BOS + Pullback Entry with HTF Bias
+
+Signal generation delegates to src.signals.trend_following_signals (shared
+with the backtest pipeline) to guarantee identical behaviour in live and
+research code.
+
+Regime filters (ADX, ATR-percentile) are applied via the same
+apply_regime_filters() function used by backtests/signals_bos_pullback.py.
+
+SL is computed AT THE MOMENT OF FILL using compute_sl_at_fill() — this
+is the canonical rule for both live and backtest (Task 5 / audit #3).
 """
+import bisect
 import pandas as pd
 import numpy as np
 import sys
@@ -13,9 +24,23 @@ from src.structure.pivots import detect_pivots_confirmed, get_last_confirmed_piv
 from src.structure.bias import get_htf_bias_at_bar
 from src.backtest.setup_tracker import SetupTracker
 
+# ── Shared signal primitives ──────────────────────────────────────────────────
+from src.signals.trend_following_signals import (
+    precompute_pivots,
+    check_bos_signal,
+    apply_regime_filters,
+    compute_entry_price,
+    compute_sl_at_fill,
+    compute_tp_price,
+    normalize_ohlc,
+    compute_adx_series,
+    compute_atr_series,
+    compute_atr_percentile_series,
+)
+
 
 def calculate_atr(df, period=14):
-    """Calculate ATR."""
+    """Calculate ATR (legacy wrapper kept for backward compat)."""
     high = df['high_bid']
     low = df['low_bid']
     close = df['close_bid']
@@ -31,32 +56,33 @@ def calculate_atr(df, period=14):
 
 
 def check_bos(df, current_idx, pivot_highs, pivot_lows, ph_levels, pl_levels, require_close_break):
-    """Check if BOS occurred at current bar."""
+    """
+    Legacy wrapper — delegates to the shared check_bos_signal().
 
+    Kept for backward compatibility with code that calls this function directly.
+    New code should use src.signals.trend_following_signals.check_bos_signal().
+    """
     current_close = df['close_bid'].iloc[current_idx]
 
-    # Bull BOS: close above last pivot high
-    last_ph_time, last_ph_level = get_last_confirmed_pivot(df, pivot_highs, ph_levels, df.index[current_idx])
+    # Resolve last pivot levels from the pre-computed series
+    last_ph_time, last_ph_level = get_last_confirmed_pivot(
+        df, pivot_highs, ph_levels, df.index[current_idx]
+    )
+    last_pl_time, last_pl_level = get_last_confirmed_pivot(
+        df, pivot_lows, pl_levels, df.index[current_idx]
+    )
 
-    if last_ph_level is not None:
-        if require_close_break:
-            if current_close > last_ph_level:
-                return True, 'LONG', last_ph_level
-        else:
-            if df['high_bid'].iloc[current_idx] > last_ph_level:
-                return True, 'LONG', last_ph_level
+    if not require_close_break:
+        # Intrabar break — use high/low directly (not via shared function)
+        if last_ph_level is not None and df['high_bid'].iloc[current_idx] > last_ph_level:
+            return True, 'LONG', last_ph_level
+        if last_pl_level is not None and df['low_bid'].iloc[current_idx] < last_pl_level:
+            return True, 'SHORT', last_pl_level
+        return False, None, None
 
-    # Bear BOS: close below last pivot low
-    last_pl_time, last_pl_level = get_last_confirmed_pivot(df, pivot_lows, pl_levels, df.index[current_idx])
-
-    if last_pl_level is not None:
-        if require_close_break:
-            if current_close < last_pl_level:
-                return True, 'SHORT', last_pl_level
-        else:
-            if df['low_bid'].iloc[current_idx] < last_pl_level:
-                return True, 'SHORT', last_pl_level
-
+    side, bos_level = check_bos_signal(current_close, last_ph_level, last_pl_level)
+    if side is not None:
+        return True, side, bos_level
     return False, None, None
 
 
@@ -65,31 +91,49 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
     Run trend following backtest with runtime parameters.
 
     Args:
-        symbol: Trading symbol
-        ltf_df: LTF (H1) bars DataFrame
-        htf_df: HTF (H4) bars DataFrame
-        params_dict: Dictionary with strategy parameters
+        symbol:         Trading symbol
+        ltf_df:         LTF (H1) bars DataFrame (columns: high_bid/low_bid/close_bid/...)
+        htf_df:         HTF (H4) bars DataFrame  (same column convention)
+        params_dict:    Strategy parameters dict — see src.config.strategy_params.StrategyParams
         initial_balance: Starting capital
 
+    Regime filter keys (optional, default = no filtering):
+        use_adx_filter          (bool)  – enable ADX gate
+        adx_threshold           (float) – minimum ADX to accept signal (default 20.0)
+        adx_timeframe           (str)   – "H4" | "D1" (default "H4")
+        adx_period              (int)   – ADX period (default 14)
+        use_atr_percentile_filter (bool) – enable ATR percentile gate
+        atr_percentile_min      (float) – lower bound (default 10.0)
+        atr_percentile_max      (float) – upper bound (default 80.0)
+        atr_percentile_window   (int)   – rolling window (default 100)
+
     Returns:
-        (trades_df, metrics_dict) - trades DataFrame and metrics dictionary
+        (trades_df, metrics_dict)
     """
 
-    # Extract params with defaults
-    ltf_lookback = params_dict.get('pivot_lookback_ltf', 3)
-    htf_lookback = params_dict.get('pivot_lookback_htf', 5)
-    confirmation_bars = params_dict.get('confirmation_bars', 1)
+    # ── Extract params ────────────────────────────────────────────────────────
+    ltf_lookback        = params_dict.get('pivot_lookback_ltf', 3)
+    htf_lookback        = params_dict.get('pivot_lookback_htf', 5)
+    confirmation_bars   = params_dict.get('confirmation_bars', 1)
     require_close_break = params_dict.get('require_close_break', True)
-    entry_offset_atr = params_dict.get('entry_offset_atr_mult', 0.3)
-    pullback_max_bars = params_dict.get('pullback_max_bars', 20)
-    sl_anchor = params_dict.get('sl_anchor', 'last_pivot')
-    sl_buffer_atr = params_dict.get('sl_buffer_atr_mult', 0.5)
-    rr = params_dict.get('risk_reward', 2.0)
+    entry_offset_atr    = params_dict.get('entry_offset_atr_mult', 0.3)
+    pullback_max_bars   = params_dict.get('pullback_max_bars', 20)
+    sl_anchor           = params_dict.get('sl_anchor', 'last_pivot')
+    sl_buffer_atr       = params_dict.get('sl_buffer_atr_mult', 0.1)
+    rr                  = params_dict.get('risk_reward', 2.0)
+    atr_period          = params_dict.get('atr_period', 14)
 
-    # Calculate ATR
+    # Regime filter params
+    use_adx_filter            = bool(params_dict.get('use_adx_filter', False))
+    adx_threshold             = float(params_dict.get('adx_threshold', 20.0))
+    adx_period                = int(params_dict.get('adx_period', 14))
+    use_atr_percentile_filter = bool(params_dict.get('use_atr_percentile_filter', False))
+    atr_percentile_min        = float(params_dict.get('atr_percentile_min', 10.0))
+    atr_percentile_max        = float(params_dict.get('atr_percentile_max', 80.0))
+    atr_percentile_window     = int(params_dict.get('atr_percentile_window', 100))
+
+    # ── Prepare DataFrames ────────────────────────────────────────────────────
     ltf_df = ltf_df.copy()
-
-    # Set timestamp as index if not already
     if 'timestamp' in ltf_df.columns:
         ltf_df.set_index('timestamp', inplace=True)
 
@@ -97,29 +141,70 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
     if 'timestamp' in htf_df.columns:
         htf_df.set_index('timestamp', inplace=True)
 
-    # VALIDATION: Ensure DatetimeIndex
-    assert isinstance(ltf_df.index, pd.DatetimeIndex), f"LTF index must be DatetimeIndex, got {type(ltf_df.index)}"
-    assert isinstance(htf_df.index, pd.DatetimeIndex), f"HTF index must be DatetimeIndex, got {type(htf_df.index)}"
+    assert isinstance(ltf_df.index, pd.DatetimeIndex), \
+        f"LTF index must be DatetimeIndex, got {type(ltf_df.index)}"
+    assert isinstance(htf_df.index, pd.DatetimeIndex), \
+        f"HTF index must be DatetimeIndex, got {type(htf_df.index)}"
 
-    # Sort index
     ltf_df = ltf_df.sort_index()
     htf_df = htf_df.sort_index()
 
-    ltf_df['atr'] = calculate_atr(ltf_df, period=14)
+    ltf_df['atr'] = calculate_atr(ltf_df, period=atr_period)
 
+    # ── Regime filter pre-computation ─────────────────────────────────────────
+    # ATR percentile on LTF (used for ATR percentile filter)
+    if use_atr_percentile_filter:
+        ltf_df['atr_pct'] = compute_atr_percentile_series(
+            ltf_df['atr'], window=atr_percentile_window
+        )
+    else:
+        ltf_df['atr_pct'] = 50.0   # neutral default, filter not applied
+
+    # HTF ADX series (no-lookahead: forward-fill to H1 timestamps)
+    htf_adx_at_h1: pd.Series = pd.Series(dtype=float)
+    if use_adx_filter:
+        htf_norm = normalize_ohlc(htf_df, price_type='bid')
+        htf_adx_raw = compute_adx_series(htf_norm, period=adx_period)
+        # No-lookahead reindex: for each H1 bar, use the last closed H4 bar's ADX
+        # Forward-fill aligns HTF ADX to the H1 timeline without lookahead
+        htf_adx_at_h1 = htf_adx_raw.reindex(
+            ltf_df.index, method='ffill'
+        )
+        # Shift by 1 H4 period to ensure the most recent bar is closed
+        # (conservative: use the ADX that was confirmed at the previous H4 close)
+        htf_adx_shifted = htf_adx_raw.shift(1).reindex(
+            ltf_df.index, method='ffill'
+        )
+        htf_adx_at_h1 = htf_adx_shifted.fillna(0.0)
+
+    # Build a lookup of HTF ADX by H1 timestamp for O(log n) access
+    _htf_adx_dict: dict = {}
+    _htf_adx_sorted_keys: list = []
+    if use_adx_filter and len(htf_adx_at_h1) > 0:
+        _htf_adx_dict = htf_adx_at_h1.to_dict()
+        _htf_adx_sorted_keys = sorted(_htf_adx_dict.keys())
+
+    # ── Pivot detection ───────────────────────────────────────────────────────
     # Detect pivots on LTF (H1)
     ltf_pivot_highs, ltf_pivot_lows, ltf_ph_levels, ltf_pl_levels = detect_pivots_confirmed(
         ltf_df, lookback=ltf_lookback, confirmation_bars=confirmation_bars
     )
 
-    # Detect pivots on HTF (H4)
+    # LTF pivots as numpy arrays for use by shared check_bos_signal via precompute_pivots
+    ltf_high_arr = ltf_df['high_bid'].values
+    ltf_low_arr  = ltf_df['low_bid'].values
+    ltf_ph_pre, _, ltf_pl_pre, _ = precompute_pivots(
+        ltf_high_arr, ltf_low_arr, ltf_lookback
+    )
+
+    # Detect pivots on HTF (H4) for HTF bias calculation
     htf_pivot_highs, htf_pivot_lows, htf_ph_levels, htf_pl_levels = detect_pivots_confirmed(
         htf_df, lookback=htf_lookback, confirmation_bars=confirmation_bars
     )
 
-    # Initialize
-    tracker = SetupTracker()
-    trades = []
+    # ── Main backtest loop ────────────────────────────────────────────────────
+    tracker      = SetupTracker()
+    trades       = []
     current_position = None
 
     # Main loop through LTF bars
@@ -303,29 +388,27 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
                 bos_bar_idx = ltf_df.index.get_loc(setup.bos_time)
                 setup.bars_to_fill = i - bos_bar_idx
 
-                # Enter trade
-                atr = current_bar['atr']
+                # ── SL at fill time (shared canonical rule) ───────────────────
+                atr   = current_bar['atr']
                 entry = setup.entry_price
 
-                # Get last pivot for SL based on sl_anchor
                 if setup.direction == 'LONG':
-                    if sl_anchor == 'last_pivot':
-                        sl_time, sl_level = get_last_confirmed_pivot(ltf_df, ltf_pivot_lows, ltf_pl_levels, current_time)
-                    else:  # pre_bos_pivot
-                        sl_level = setup.bos_level
+                    sl_pivot_time, sl_pivot_level = get_last_confirmed_pivot(
+                        ltf_df, ltf_pivot_lows, ltf_pl_levels, current_time
+                    )
+                else:
+                    sl_pivot_time, sl_pivot_level = get_last_confirmed_pivot(
+                        ltf_df, ltf_pivot_highs, ltf_ph_levels, current_time
+                    )
 
-                    sl = (sl_level - sl_buffer_atr * atr) if sl_level else (entry - 2 * atr)
-                    risk = entry - sl
-                    tp = entry + (risk * rr)
-                else:  # SHORT
-                    if sl_anchor == 'last_pivot':
-                        sl_time, sl_level = get_last_confirmed_pivot(ltf_df, ltf_pivot_highs, ltf_ph_levels, current_time)
-                    else:
-                        sl_level = setup.bos_level
-
-                    sl = (sl_level + sl_buffer_atr * atr) if sl_level else (entry + 2 * atr)
-                    risk = sl - entry
-                    tp = entry - (risk * rr)
+                sl = compute_sl_at_fill(
+                    side=setup.direction,
+                    last_pivot_level=sl_pivot_level,
+                    sl_buffer_mult=sl_buffer_atr,
+                    atr_val=atr,
+                    entry_price=entry,
+                )
+                tp = compute_tp_price(entry, sl, rr, setup.direction)
 
                 current_position = {
                     'direction': setup.direction,
@@ -351,11 +434,16 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
         if htf_bias == 'NEUTRAL':
             continue
 
-        # Check for BOS
-        bos_detected, bos_direction, bos_level = check_bos(
-            ltf_df, i, ltf_pivot_highs, ltf_pivot_lows, ltf_ph_levels, ltf_pl_levels,
-            require_close_break
+        # Check for BOS using the shared signal function
+        # Use precomputed no-lookahead pivot arrays for consistency with backtests
+        last_ph = ltf_ph_pre[i]
+        last_pl = ltf_pl_pre[i]
+
+        bos_side, bos_level = check_bos_signal(
+            current_bar['close_bid'], last_ph, last_pl
         )
+        bos_detected = bos_side is not None
+        bos_direction = bos_side
 
         if not bos_detected:
             continue
@@ -365,13 +453,36 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
            (bos_direction == 'SHORT' and htf_bias != 'BEAR'):
             continue
 
-        # Create pullback setup
+        # ── Regime filters (via shared apply_regime_filters) ─────────────────
+        # Resolve current ADX value on the filter timeframe (H4)
+        adx_val_now = 0.0
+        if use_adx_filter and _htf_adx_dict:
+            adx_val_now = _htf_adx_dict.get(current_time, 0.0)
+            if adx_val_now == 0.0 and _htf_adx_sorted_keys:
+                pos = bisect.bisect_right(_htf_adx_sorted_keys, current_time) - 1
+                if pos >= 0:
+                    adx_val_now = _htf_adx_dict[_htf_adx_sorted_keys[pos]]
+
+        atr_pct_now = float(ltf_df['atr_pct'].iloc[i]) if 'atr_pct' in ltf_df.columns else 50.0
+        if np.isnan(atr_pct_now):
+            atr_pct_now = 50.0
+
+        if not apply_regime_filters(
+            adx_val=adx_val_now,
+            atr_pct_val=atr_pct_now,
+            use_adx_filter=use_adx_filter,
+            adx_threshold=adx_threshold,
+            use_atr_percentile_filter=use_atr_percentile_filter,
+            atr_percentile_min=atr_percentile_min,
+            atr_percentile_max=atr_percentile_max,
+        ):
+            continue
+
+        # ── Create pullback setup ─────────────────────────────────────────────
         atr = current_bar['atr']
 
-        if bos_direction == 'LONG':
-            entry_price = bos_level + (entry_offset_atr * atr)
-        else:
-            entry_price = bos_level - (entry_offset_atr * atr)
+        # Entry price via shared function
+        entry_price = compute_entry_price(bos_level, bos_direction, entry_offset_atr, atr)
 
         expiry_idx = min(i + pullback_max_bars, len(ltf_df) - 1)
         expiry_time = ltf_df.index[expiry_idx]

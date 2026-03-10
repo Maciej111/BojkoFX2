@@ -1,17 +1,43 @@
 """
 backtests/signals_bos_pullback.py
-BOS + Pullback signal generation — odtworzona logika z src/core/strategy.py,
-działająca na czystych DataFrame H1 + D1 (resample z H1).
-Nie importuje nic z src/.
+BOS + Pullback signal generation.
+
+Core primitives (pivot detection, BOS check, regime filters, SL/entry/TP
+computation) are imported from src.signals.trend_following_signals to ensure
+identical logic with the live trading strategy (src/strategies/trend_following_v1.py).
+
+Backtest-specific additions:
+  - D1/H4 context builders (build_d1, build_h4) for ADX metadata
+  - BOSPullbackSignalGenerator: full-series scan → list[TradeSetup]
+  - filter_and_adjust(): O(k) experiment filter grid
+
+No signal logic is implemented here that is not also in the shared module.
 """
 from __future__ import annotations
 
 import bisect
+import os
+import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+
+# ── Shared signal primitives (single source of truth) ────────────────────────
+# Add FX root to path so src.signals is importable when running from backtests/
+_FX_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _FX_ROOT not in sys.path:
+    sys.path.insert(0, _FX_ROOT)
+
+from src.signals.trend_following_signals import (
+    precompute_pivots,
+    check_bos_signal,
+    apply_regime_filters,
+    compute_entry_price,
+    compute_sl_at_fill,
+    compute_tp_price,
+)
 
 from .indicators import (
     atr as calc_atr, adx as calc_adx, atr_percentile, adx_slope,
@@ -72,54 +98,15 @@ class ClosedTrade:
     pnl_price:     float      # PnL w jednostkach ceny × units
 
 
-# ── Pivot detection ───────────────────────────────────────────────────────────
+# ── Pivot detection — delegates to shared module ──────────────────────────────
 
 def _precompute_pivots(high: np.ndarray, low: np.ndarray,
                        lookback: int) -> tuple:
     """
-    Pre-computes running last pivot high/low for every bar in O(n).
-
-    Returns four lists of length n:
-      ph_prices[i] = price of the most recent pivot high confirmed BEFORE bar i
-      ph_idxs[i]   = bar index of that pivot high (or None)
-      pl_prices[i] = price of the most recent pivot low confirmed BEFORE bar i
-      pl_idxs[i]   = bar index of that pivot low (or None)
-
-    A pivot at position p is *confirmed* once we reach bar p+lookback
-    (the right wing is complete), so it becomes visible from bar p+lookback+1.
+    Thin wrapper preserved for backward compatibility.
+    Delegates to src.signals.trend_following_signals.precompute_pivots().
     """
-    n = len(high)
-    ph_prices: list = [None] * n
-    ph_idxs:   list = [None] * n
-    pl_prices: list = [None] * n
-    pl_idxs:   list = [None] * n
-
-    last_ph = last_ph_idx = None
-    last_pl = last_pl_idx = None
-
-    for i in range(n):
-        # Store running state BEFORE updating (so bar i sees pivots < i)
-        ph_prices[i] = last_ph
-        ph_idxs[i]   = last_ph_idx
-        pl_prices[i] = last_pl
-        pl_idxs[i]   = last_pl_idx
-
-        # Candidate pivot centre: p = i - lookback (confirmed at bar i)
-        p = i - lookback
-        if p >= lookback:
-            lo_s = p - lookback
-            hi_e = p + lookback + 1
-            if hi_e <= n:
-                window_h = high[lo_s:hi_e]
-                if high[p] == window_h.max():
-                    last_ph = float(high[p])
-                    last_ph_idx = p
-                window_l = low[lo_s:hi_e]
-                if low[p] == window_l.min():
-                    last_pl = float(low[p])
-                    last_pl_idx = p
-
-    return ph_prices, ph_idxs, pl_prices, pl_idxs
+    return precompute_pivots(high, low, lookback)
 
 
 # ── D1 context builder ────────────────────────────────────────────────────────
@@ -311,13 +298,15 @@ class BOSPullbackSignalGenerator:
 
             for side, bos_level, entry_raw, sl_raw, sign in [
                 ("LONG",  last_ph,
-                 last_ph + self.entry_offset_mult * atr_val,
-                 last_pl  - self.sl_buffer_mult   * atr_val,
+                 compute_entry_price(last_ph, "LONG",  self.entry_offset_mult, atr_val),
+                 compute_sl_at_fill("LONG",  last_pl,  self.sl_buffer_mult, atr_val,
+                                    compute_entry_price(last_ph, "LONG", self.entry_offset_mult, atr_val)),
                  1)
                 if cur_close > last_ph else (None, None, None, None, None),
                 ("SHORT", last_pl,
-                 last_pl - self.entry_offset_mult * atr_val,
-                 last_ph  + self.sl_buffer_mult   * atr_val,
+                 compute_entry_price(last_pl, "SHORT", self.entry_offset_mult, atr_val),
+                 compute_sl_at_fill("SHORT", last_ph,  self.sl_buffer_mult, atr_val,
+                                    compute_entry_price(last_pl, "SHORT", self.entry_offset_mult, atr_val)),
                  -1)
                 if cur_close < last_pl else (None, None, None, None, None),
             ]:
@@ -330,8 +319,8 @@ class BOSPullbackSignalGenerator:
                 if side == "SHORT" and sl <= entry:
                     continue
                 rr = self.base_rr
-                risk = abs(entry - sl)
-                tp = entry + sign * rr * risk
+                # TP via shared compute_tp_price (same as live strategy)
+                tp = compute_tp_price(entry, sl, rr, side)
 
                 setups.append(TradeSetup(
                     bar_idx=i, bar_ts=ts, symbol=symbol, side=side,
@@ -480,9 +469,7 @@ def filter_and_adjust(
         if rr == s.rr:
             result.append(s)
         else:
-            risk = abs(s.entry_price - s.sl_price)
-            sign = 1 if s.side == "LONG" else -1
-            new_tp = s.entry_price + sign * rr * risk
+            new_tp = compute_tp_price(s.entry_price, s.sl_price, rr, s.side)
             from dataclasses import replace as dc_replace
             result.append(dc_replace(s, rr=rr, tp_price=new_tp))
 

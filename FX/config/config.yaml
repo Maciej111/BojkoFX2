@@ -5,6 +5,12 @@
 #                       Walidacja trojokresowa: IS 2021-2022 / OOS 2023-2024 / OOS 2025
 #                       USDJPY: +0.147R→+0.162R, CADJPY: +0.230R→+0.183R (oba bija PROD)
 #                       Źródło: reports/TRAILING_STOP_VAL2025_ANALYSIS.md
+# Updated 2026-03-10 — Grid backtest 2021-2025 (382 exp, 5 sym, 9 foldów)
+#                       ATR percentile filter [20-80] dodany do wszystkich symboli
+#                       ExpR +32% vs baseline, DD test 13.1% (vs 84% baseline), 89% kw.+
+#                       risk_fraction: 1% → 0.25% (DD portfolio: 430% → 4.3%)
+#                       ADX gate bez wpływu na D1, H4 zostawiony z poprzedniej analizy
+#                       Źródło: backtests/outputs/report.md (2026-03-10)
 strategy:
   entry_offset_atr_mult: 0.3
   pullback_max_bars: 50
@@ -33,6 +39,9 @@ symbols:
     session_start_h: 8    # London open — Azja (00-08) marginalny +0.14R
     session_end_h: 21     # NY close   — Off-hours (21-00) ujemny  -0.17R
     adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    atr_pct_filter_min: 20  # Grid 2026-03-10: ATR pct [20-80] → +0.208R ExpR, stab. 4/8 kw.
+    atr_pct_filter_max: 80
+    atr_pct_window: 100
     enabled: true
   USDJPY:
     ltf: "H1"
@@ -41,6 +50,9 @@ symbols:
     session_start_h: 0
     session_end_h: 24
     adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    atr_pct_filter_min: 20  # Grid 2026-03-10: ATR pct [20-80] → +0.142R ExpR, PF=1.578, 6/8 kw.
+    atr_pct_filter_max: 80
+    atr_pct_window: 100
     risk_reward: 2.5      # ZMIANA 2026-03-08: 3.0 → 2.5 dla TS (backtesty: +0.098R vs PROD)
     trailing_stop:
       enabled: true
@@ -55,6 +67,9 @@ symbols:
     session_start_h: 8
     session_end_h: 21     # NY close — Off-hours (21-00) bardzo zly -0.36R
     adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    atr_pct_filter_min: 20  # Grid 2026-03-10: ATR pct [20-80] wymagane (USDCHF ujemne bez filtru)
+    atr_pct_filter_max: 80
+    atr_pct_window: 100
     enabled: true
   AUDJPY:
     ltf: "H1"
@@ -63,6 +78,9 @@ symbols:
     session_start_h: 0    # Azja aktywna (+0.45R) — handluj od północy
     session_end_h: 21     # NY close   — Off-hours (21-00) ujemny -0.17R
     adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    atr_pct_filter_min: 20  # Grid 2026-03-10: ATR pct [20-80], ExpR +0.082R (slabszy, PF<1 bez)
+    atr_pct_filter_max: 80
+    atr_pct_window: 100
     enabled: true
   CADJPY:
     ltf: "H1"
@@ -70,10 +88,11 @@ symbols:
     session_filter: false  # 24h ≈ NY session (różnica <0.03R), Off-hours marginalny
     session_start_h: 0
     session_end_h: 24
-    atr_pct_filter_min: 10   # Priorytet 2 (2026-03-04): ATR filtr 10-80 dla CADJPY
-    atr_pct_filter_max: 80   # Backtesty: +0.245R delta vs baseline (6/8 pos kw.)
+    atr_pct_filter_min: 20   # Grid 2026-03-10: zmiana 10→20 (atr_pct_20_80 stab. OOS, delta=-0.035R)
+    atr_pct_filter_max: 80   # Backtesty: +0.247R ExpR, 6/8 kw.+, DD test 13% przy risk_25bp
+    atr_pct_window: 100
     # adx_h4_gate: brak — H4 ADX 16 niszczy CADJPY (-24% ExpR, overfit Δ=-0.114R)
-    # ATR 10-80 jest optymalnym i jedynym filtrem dla tej pary
+    # ATR 20-80 jest optymalnym filtrem (poprzednio 10-80, delta minimalna)
     risk_reward: 3.0      # bez zmian (TS działa z RR=3.0)
     trailing_stop:
       enabled: true
@@ -84,10 +103,12 @@ symbols:
 
 risk:
   sizing_mode: "risk_first"   # ZMIANA 2026-03-04: risk_first zamiast fixed_units
-  risk_fraction_start: 0.01   # 1% equity per trade → $30,000 × 1% = $300/trade
+  risk_fraction_start: 0.0025 # ZMIANA 2026-03-10: 1% → 0.25% per trade
+                              # Grid: DD portfolio 430% → 4.3%, ExpR bez zmian
+                              # $30,000 × 0.25% = $75/trade (konserwatywne paper trading)
   default_units: 5000         # używane tylko gdy sizing_mode: fixed_units
   equity_override: 30000      # stała baza $30k zamiast paper $4.3M IBKR
-                              # max_risk = $30,000 × 1% = $300/trade
+                              # max_risk = $30,000 × 0.25% = $75/trade
   max_units_per_trade: 200000 # hard cap — dodatkowe zabezpieczenie
   max_open_positions_total: 5   # 1 per symbol × 5 aktywnych symboli (zmiana 2026-03-04)
   max_open_positions_per_symbol: 1

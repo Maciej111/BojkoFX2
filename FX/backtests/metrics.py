@@ -17,7 +17,14 @@ def calc_metrics(trades: List[ClosedTrade],
                  label: str = "") -> dict:
     """
     Oblicza kompletny zestaw metryk dla listy zamkniętych transakcji.
-    Zwraca dict z kluczowymi metrykami.
+
+    Includes robustness diagnostics:
+      median_R              – median R per trade (less sensitive to outliers than mean)
+      top_5_trade_r_share   – fraction of total absolute R from the top 5 winning trades
+      outlier_dependence    – True if top 5 trades account for >50% of total absolute R
+
+    These diagnostics quantify tail dependence: a strategy where top_5_trade_r_share
+    is very high depends critically on a small number of outlier wins.
     """
     if not trades:
         return _empty_metrics(label)
@@ -36,6 +43,7 @@ def calc_metrics(trades: List[ClosedTrade],
 
     r_vals       = tp_sl["r_multiple"].values
     avg_r        = float(np.mean(r_vals)) if len(r_vals) > 0 else 0.0
+    median_r     = float(np.median(r_vals)) if len(r_vals) > 0 else 0.0
     avg_win_r    = float(np.mean(r_vals[r_vals > 0])) if (r_vals > 0).any() else 0.0
     avg_loss_r   = float(np.mean(r_vals[r_vals < 0])) if (r_vals < 0).any() else 0.0
 
@@ -43,7 +51,12 @@ def calc_metrics(trades: List[ClosedTrade],
     loss_pnl  = abs(tp_sl.loc[tp_sl["r_multiple"] < 0, "pnl_price"].sum())
     pf        = wins_pnl / loss_pnl if loss_pnl > 0 else (np.inf if wins_pnl > 0 else 0.0)
 
-    # Equity curve
+    # ── Robustness: outlier contribution ─────────────────────────────────────
+    # Top-5 winning trades' R as a share of total |R| across all TP/SL trades
+    top5_r_share = _top_n_trade_r_share(r_vals, n=5)
+    outlier_dependence = top5_r_share > 0.50 if not np.isnan(top5_r_share) else False
+
+    # ── Equity curve ─────────────────────────────────────────────────────────
     eq_curve = _equity_curve(df, initial_equity)
     max_dd   = _max_drawdown(eq_curve)
 
@@ -67,23 +80,27 @@ def calc_metrics(trades: List[ClosedTrade],
     tail_risk = _tail_risk(eq_curve, df)
 
     return {
-        "label":             label,
-        "n_trades":          n_total,
-        "n_tp":              n_tp,
-        "n_sl":              n_sl,
-        "n_ttl":             n_ttl,
-        "win_rate":          round(win_rate, 4),
-        "expectancy_R":      round(avg_r, 4),
-        "avg_win_R":         round(avg_win_r, 4),
-        "avg_loss_R":        round(avg_loss_r, 4),
-        "profit_factor":     round(pf, 3),
-        "max_dd_pct":        round(max_dd * 100, 2),
-        "max_cons_losses":   cons_losses,
-        "trades_per_month":  round(tpm, 2),
-        "avg_bars_held":     round(avg_bars, 1),
-        "pct_pos_months":    round(pct_pos_months, 2),
-        "pct_pos_quarters":  round(pct_pos_quarters, 2),
-        "tail_risk_95":      round(tail_risk * 100, 2),
+        "label":                label,
+        "n_trades":             n_total,
+        "n_tp":                 n_tp,
+        "n_sl":                 n_sl,
+        "n_ttl":                n_ttl,
+        "win_rate":             round(win_rate, 4),
+        "expectancy_R":         round(avg_r, 4),
+        "median_R":             round(median_r, 4),
+        "avg_win_R":            round(avg_win_r, 4),
+        "avg_loss_R":           round(avg_loss_r, 4),
+        "profit_factor":        round(pf, 3),
+        "max_dd_pct":           round(max_dd * 100, 2),
+        "max_cons_losses":      cons_losses,
+        "trades_per_month":     round(tpm, 2),
+        "avg_bars_held":        round(avg_bars, 1),
+        "pct_pos_months":       round(pct_pos_months, 2),
+        "pct_pos_quarters":     round(pct_pos_quarters, 2),
+        "tail_risk_95":         round(tail_risk * 100, 2),
+        # Robustness diagnostics
+        "top_5_trade_r_share":  round(top5_r_share, 4) if not np.isnan(top5_r_share) else None,
+        "outlier_dependence":   outlier_dependence,
     }
 
 
@@ -122,6 +139,25 @@ def _max_drawdown(eq: pd.Series) -> float:
     running_max = eq.cummax()
     dd = (eq - running_max) / running_max.replace(0, np.nan)
     return float(dd.min()) * -1 if len(dd) > 0 else 0.0
+
+
+def _top_n_trade_r_share(r_vals: np.ndarray, n: int = 5) -> float:
+    """
+    Returns the fraction of total absolute R contributed by the top-n winning trades.
+
+    A value close to 1.0 indicates extreme tail dependence — the strategy's entire
+    P&L is driven by a handful of outlier trades.
+
+    Returns float(nan) if there are fewer than n trades.
+    """
+    if len(r_vals) < n:
+        return float("nan")
+    winning = np.sort(r_vals[r_vals > 0])[::-1]  # descending
+    top_n   = winning[:n]
+    total_abs_r = np.abs(r_vals).sum()
+    if total_abs_r == 0:
+        return 0.0
+    return float(top_n.sum() / total_abs_r)
 
 
 def _max_consecutive_losses(r_vals: np.ndarray) -> int:
@@ -183,10 +219,12 @@ def _tail_risk(eq: pd.Series, df: pd.DataFrame) -> float:
 def _empty_metrics(label: str) -> dict:
     return {
         "label": label, "n_trades": 0, "n_tp": 0, "n_sl": 0, "n_ttl": 0,
-        "win_rate": 0.0, "expectancy_R": 0.0, "avg_win_R": 0.0, "avg_loss_R": 0.0,
+        "win_rate": 0.0, "expectancy_R": 0.0, "median_R": 0.0,
+        "avg_win_R": 0.0, "avg_loss_R": 0.0,
         "profit_factor": 0.0, "max_dd_pct": 0.0, "max_cons_losses": 0,
         "trades_per_month": 0.0, "avg_bars_held": 0.0,
         "pct_pos_months": 0.0, "pct_pos_quarters": 0.0, "tail_risk_95": 0.0,
+        "top_5_trade_r_share": None, "outlier_dependence": False,
     }
 
 
