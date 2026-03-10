@@ -83,5 +83,5 @@ reports/*.png
 chk*.txt
 snap.txt
 
-# ── Lokalne pliki startowe z kluczami ────────────────────────────────────────
-start_dashboard.bat
+# ── Lokalne sekrety (nie commitować) ────────────────────────────────────────
+.env
