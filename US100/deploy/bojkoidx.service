@@ -6,7 +6,7 @@ Requires=ibgateway.service
 [Service]
 Type=simple
 User=macie
-WorkingDirectory=/home/macie/bojkoidx/app
+WorkingDirectory=/home/macie/bojkoidx/app/US100
 EnvironmentFile=/home/macie/bojkoidx/config/ibkr.env
 
 # Wait for IB Gateway to fully initialise before connecting
