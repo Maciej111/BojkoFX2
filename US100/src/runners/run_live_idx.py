@@ -361,9 +361,9 @@ def main():
 
             # Kill-switch: stop trading after daily/monthly loss breach
             if not execution.kill_switch_active:
-                ks_triggered = execution.check_risk_limits()
-                if ks_triggered:
-                    logger.log_kill_switch(f"Risk limit triggered — DD protection active")
+                execution.check_kill_switch()
+                if execution.kill_switch_active:
+                    logger.log_kill_switch("Risk limit triggered — DD protection active")
                     print("[KILL_SWITCH] Risk limit triggered — all orders blocked.")
 
             # ── Update bars ───────────────────────────────────────────────────
