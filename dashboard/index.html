@@ -137,6 +137,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
+<!-- Bot offline banner -->
+<div id="offlineBanner" style="display:none;background:#0d0c14;border-bottom:1px solid rgba(168,85,247,0.3);padding:9px 20px;align-items:center;gap:10px;font-family:'Geist Mono',monospace;font-size:12px;color:#a855f7">
+  <span>&#9679;</span>
+  <span id="offlineBannerText">Bot nie jest uruchomiony dla tego projektu.</span>
+</div>
+
 <!-- CORS hint -->
 <div id="corsHint" style="display:none;background:#1a0d04;border-bottom:1px solid rgba(240,165,0,0.3);padding:10px 20px;align-items:center;gap:12px;font-family:'Geist Mono',monospace;font-size:12px;color:#f0a500">
   <span>&#9888;</span>
@@ -275,6 +281,7 @@ document.querySelectorAll(".ptab").forEach(btn => {
     document.querySelectorAll(".ptab").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     activeFilter = "ALL";
+    document.getElementById("offlineBanner").style.display = "none";
     buildSymCards();
     buildFilterBtns();
     fetchAll();
@@ -383,6 +390,19 @@ function updatePortfolio(data) {
   pill.className = alive ? "pill pill-bot" : "pill pill-bot offline";
   lbl.textContent = alive ? "BOT ONLINE" : "BOT OFFLINE";
 
+  // Offline / not-deployed banner
+  const banner = document.getElementById("offlineBanner");
+  const bannerTxt = document.getElementById("offlineBannerText");
+  if (!alive) {
+    const state = data.service_state;
+    bannerTxt.textContent = state === "inactive" || state === "unknown"
+      ? `${cfg().label} — bot nie jest uruchomiony (service: ${state}). Dane historyczne poniżej (jeśli dostępne).`
+      : `${cfg().label} — BOT OFFLINE`;
+    banner.style.display = "flex";
+  } else {
+    banner.style.display = "none";
+  }
+
   document.getElementById("ksPill").style.display = p.kill_switch ? "inline-flex" : "none";
 
   const eq  = p.equity ?? 0;
@@ -445,7 +465,16 @@ function updateWinRate(trades) {
 //  EQUITY CHART
 // ════════════════════════════════════════════════════════════
 function updateEquityChart(data) {
-  if (!data?.length) return;
+  const ctx = document.getElementById("eqCanvas").getContext("2d");
+  if (!data?.length) {
+    if (eqChart) { eqChart.destroy(); eqChart = null; }
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillStyle = "#48535f";
+    ctx.font = "12px Geist Mono, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("No equity data", ctx.canvas.width / 2, ctx.canvas.height / 2);
+    return;
+  }
   const labels = data.map(d => {
     const dt = new Date(d.ts);
     return dt.toLocaleDateString("en-US", { month:"short", day:"2-digit" });
@@ -453,14 +482,16 @@ function updateEquityChart(data) {
   const values = data.map(d => d.equity);
   const ctx = document.getElementById("eqCanvas").getContext("2d");
   if (eqChart) { eqChart.destroy(); eqChart = null; }
+  const accentRaw = cfg().accentColor === "var(--green)" ? "13,219,140" : "168,85,247";
+  const lineColor  = cfg().accentColor === "var(--green)" ? "#0ddb8c" : "#a855f7";
   const grad = ctx.createLinearGradient(0, 0, 0, 180);
-  grad.addColorStop(0, "rgba(13,219,140,0.18)");
-  grad.addColorStop(1, "rgba(13,219,140,0)");
+  grad.addColorStop(0, `rgba(${accentRaw},0.18)`);
+  grad.addColorStop(1, `rgba(${accentRaw},0)`);
   eqChart = new Chart(ctx, {
     type: "line",
-    data: { labels, datasets: [{ data: values, borderColor:"#0ddb8c", borderWidth:1.5,
+    data: { labels, datasets: [{ data: values, borderColor: lineColor, borderWidth:1.5,
       backgroundColor:grad, fill:true, tension:0.3, pointRadius:0, pointHoverRadius:4,
-      pointHoverBackgroundColor:"#0ddb8c" }] },
+        pointHoverBackgroundColor: lineColor }] },
     options: {
       responsive:true, maintainAspectRatio:false,
       interaction:{ mode:"index", intersect:false },
