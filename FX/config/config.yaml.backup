@@ -1,0 +1,81 @@
+# Config for Supply & Demand Backtest (Dukascopy Ticks)
+
+data:
+  symbol: "eurusd"
+  start_date: "2024-06-01"
+  end_date: "2024-12-31"
+  timeframe: "15min" # pandas alias for 15M
+  raw_dir: "data/raw"
+  bars_dir: "data/bars"
+  tick_file_suffix: "_ticks.csv"
+  bars_file_suffix: "_m15_bars.csv"
+
+strategy:
+  # Strategy Mode for Filter Decomposition Analysis
+  # Options: BOS_ONLY, BOS_RR, BOS_HTF, FULL
+  strategy_mode: "FULL"
+
+  base_lookback: 20
+  base_max_candles: 8
+  base_min_candles: 2
+  base_body_atr_mult: 0.72 # Body threshold for base candles (OPTIMIZED from 0.6)
+  impulse_atr_mult: 1.6    # Impulse threshold (OPTIMIZED from 2.0 - more trades)
+  buffer_atr_mult: 1.0     # Buffer for SL (no change)
+  risk_reward: 1.5         # TP RR (OPTIMIZED from 2.0 - more realistic)
+  min_rr: 1.2              # Minimum RR filter for BOS_RR mode
+  min_zone_width_pips: 3   # To avoid tiny zones
+  max_zone_width_pips: 20  # To avoid massive zones
+  max_touches_per_zone: 1  # Only first touch (OPTIMIZED from 3)
+
+  # TEST A: EMA Trend Filter
+  use_ema_filter: false     # Enable EMA200 trend filter
+  ema_period: 200           # EMA period for trend filter
+
+  # TEST B: Break of Structure Filter (BASELINE FOR PHASE 2)
+  use_bos_filter: false     # Enable BOS filter
+  pivot_lookback: 3         # Lookback for pivot detection (3 or 5)
+
+  # TEST C: HTF Location Filter
+  use_htf_location_filter: false  # Enable HTF location filter
+  htf_period: "4h"                # Higher timeframe period (4h for H1 base)
+  htf_lookback: 100               # HTF bars to look back for range
+  demand_max_position: 0.35       # Max position for demand zones (0-1)
+  supply_min_position: 0.65       # Min position for supply zones (0-1)
+
+  # PHASE 2: Session Filter (Test E)
+  use_session_filter: false       # Enable session filter
+  session_mode: "both"            # "london", "ny", or "both"
+
+  # PHASE 2: Partial Take Profit (Test F)
+  use_partial_tp: false           # Enable partial TP
+  partial_tp_first_target: 1.0    # First TP at +1R
+  partial_tp_second_target: 1.5   # Second TP at +1.5R (or final RR)
+
+# Trend Following Strategy v1 - OPTIMIZED Config #2 (BEST: +0.582R!)
+trend_strategy:
+  # CONFIG #2 - FULL RUN WINNER (+0.582R overall, 4/4 positive years!)
+  entry_offset_atr_mult: 0.3     # Optimal: moderate distance from BOS
+  pullback_max_bars: 40          # Optimal: patient pullback wait
+  risk_reward: 1.8               # Optimal: balanced risk-reward
+  sl_anchor: "last_pivot"        # Optimal: use last pivot for SL
+  sl_buffer_atr_mult: 0.5        # Optimal: wider SL buffer
+
+  # Fixed Parameters (Validated)
+  pivot_lookback_ltf: 3          # H1 pivot detection
+  pivot_lookback_htf: 5          # H4 pivot detection
+  confirmation_bars: 1           # Anti-lookahead
+  require_close_break: true      # BOS confirmation
+
+execution:
+  max_positions: 1
+  slippage_pips: 0.1 # Simulated slippage per trade
+  commission_per_lot: 7.0 # USD per round turn lot (approx)
+  lot_size: 100000
+  initial_balance: 10000.0
+  risk_per_trade_pct: 1.0 # 1% risk per trade
+  intra_bar_policy: "worst_case" # if SL and TP hit in same bar
+  allow_same_bar_entry: false # Anti-lookahead: prevent entry on same bar as zone creation
+
+reporting:
+  output_dir: "reports"
+

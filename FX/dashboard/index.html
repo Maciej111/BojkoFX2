@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BojkoFx Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#070809; --surface:#0d0f11; --surface2:#131618;
+  --border:#1c2026; --border2:#252b33;
+  --txt:#b8c4d0; --txt-dim:#48535f; --txt-hi:#dde6f0;
+  --green:#0ddb8c; --gd:rgba(13,219,140,0.12);
+  --red:#f5455c;   --rd:rgba(245,69,92,0.12);
+  --amber:#f0a500; --ad:rgba(240,165,0,0.12);
+  --blue:#3d9eff;  --bd:rgba(61,158,255,0.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Geist',sans-serif;font-size:13px;min-height:100vh;padding-bottom:6px}
+/* ── Topbar ── */
+#topbar{position:sticky;top:0;z-index:100;height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(7,8,9,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.top-left{display:flex;align-items:center;gap:12px}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-icon{width:28px;height:28px;background:var(--gd);border:1px solid rgba(13,219,140,0.3);border-radius:6px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:16px;height:16px}
+.logo-text{font-family:'Geist Mono',monospace;font-size:13px;font-weight:600;color:var(--txt-hi);letter-spacing:.08em}
+.divider{width:1px;height:20px;background:var(--border2)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;font-family:'Geist Mono',monospace}
+.pill-bot{background:var(--gd);border:1px solid rgba(13,219,140,0.25);color:var(--green)}
+.pill-bot.offline{background:var(--rd);border-color:rgba(245,69,92,0.25);color:var(--red)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.dot.pulse{animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+.pill-paper{background:rgba(72,83,95,0.2);border:1px solid var(--border2);color:var(--txt-dim)}
+.pill-ks{background:var(--rd);border:1px solid rgba(245,69,92,0.35);color:var(--red);display:none}
+.top-right{display:flex;align-items:center;gap:14px}
+.utc-clock{font-family:'Geist Mono',monospace;font-size:11px;color:var(--txt-dim)}
+.countdown-wrap{display:flex;align-items:center;gap:7px}
+#cdText{font-family:'Geist Mono',monospace;font-size:11px;color:var(--txt-dim);min-width:24px;text-align:right}
+/* ── Layout ── */
+.main{padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+/* ── Stat cards ── */
+.stats-row{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1fr;gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.card-label{font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:8px}
+.stat-big{font-family:'Geist Mono',monospace;font-size:22px;font-weight:600;color:var(--txt-hi);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stat-sub{font-size:11px;color:var(--txt-dim);margin-top:5px;font-family:'Geist Mono',monospace}
+.badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;font-family:'Geist Mono',monospace}
+.badge-g{background:var(--gd);color:var(--green)}
+.badge-r{background:var(--rd);color:var(--red)}
+.badge-a{background:var(--ad);color:var(--amber)}
+.badge-b{background:var(--bd);color:var(--blue)}
+.pos-g{color:var(--green)} .pos-r{color:var(--red)} .pos-a{color:var(--amber)} .pos-d{color:var(--txt-dim)}
+/* ── Equity chart card ── */
+.eq-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.eq-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.eq-title{font-size:13px;font-weight:500;color:var(--txt-hi)}
+.eq-meta{font-size:10px;color:var(--txt-dim);font-family:'Geist Mono',monospace}
+.eq-wrap{position:relative;height:180px}
+/* ── Symbol grid ── */
+.sym-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sym-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.sym-header{display:flex;justify-content:space-between;align-items:center}
+.sym-name{font-family:'Geist Mono',monospace;font-size:14px;font-weight:600;color:var(--txt-hi)}
+.sym-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sym-cell{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+.sym-cell-label{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:3px}
+.sym-cell-val{font-family:'Geist Mono',monospace;font-size:12px;font-weight:500;color:var(--txt-hi)}
+.candle-wrap{position:relative;border-radius:7px;overflow:hidden;border:1px solid var(--border)}
+.candle-wrap canvas{display:block;width:100%;height:190px}
+.levels-bar{display:flex;gap:10px;flex-wrap:wrap;padding:6px 0 2px;min-height:22px}
+.lvl-item{font-size:10px;font-family:'Geist Mono',monospace;color:var(--txt-dim);display:flex;align-items:center;gap:4px}
+.lvl-dash{width:14px;height:2px;border-radius:1px}
+/* ── Trades table ── */
+.trades-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.trades-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.trades-title{font-size:13px;font-weight:500;color:var(--txt-hi)}
+.trades-meta{font-size:10px;color:var(--txt-dim);font-family:'Geist Mono',monospace}
+.filter-btns{display:flex;gap:6px}
+.fbtn{background:var(--surface2);border:1px solid var(--border);color:var(--txt-dim);padding:4px 12px;border-radius:6px;font-size:11px;font-family:'Geist Mono',monospace;cursor:pointer;transition:all .15s}
+.fbtn:hover{border-color:var(--border2);color:var(--txt)}
+.fbtn.active{background:var(--bd);border-color:rgba(61,158,255,0.35);color:var(--blue)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-dim);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--border);color:var(--txt);font-family:'Geist Mono',monospace;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.trow-hidden{display:none}
+/* ── Progress strip ── */
+#strip{position:fixed;bottom:0;left:0;width:100%;height:2px;background:var(--border);z-index:200}
+#strip-fill{height:100%;background:var(--green);transform-origin:left;animation:strip-go 60s linear forwards}
+@keyframes strip-go{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="top-left">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polyline points="1,12 5,7 8,9 12,4 15,6" stroke="#0ddb8c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="logo-text">BOJKOFX</span>
+    </div>
+    <div class="divider"></div>
+    <div class="pill pill-bot" id="botPill"><span class="dot pulse"></span><span id="botLabel">BOT ONLINE</span></div>
+    <div class="pill pill-paper">PAPER</div>
+    <div class="pill pill-ks" id="ksPill">⚡ KILL SWITCH</div>
+  </div>
+  <div class="top-right">
+    <span class="utc-clock">last update: <span id="utcClock">--:--:-- UTC</span></span>
+    <div class="countdown-wrap">
+      <svg width="24" height="24" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="var(--border2)" stroke-width="2"/>
+        <circle id="cdRing" cx="12" cy="12" r="9" fill="none" stroke="var(--green)" stroke-width="2"
+          stroke-dasharray="56.55" stroke-dashoffset="0"
+          transform="rotate(-90 12 12)" style="transition:stroke-dashoffset .9s linear"/>
+      </svg>
+      <span id="cdText">60s</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<!-- DEBUG BAR — remove after fixing -->
+<div id="dbgBar" style="background:#0a1a0a;color:#0ddb8c;font-family:monospace;font-size:11px;padding:4px 20px;border-bottom:1px solid #1c2026">waiting for API...</div>
+
+<!-- CORS / file:// hint banner -->
+<div id="corsHint" style="display:none;background:#1a0d04;border-bottom:1px solid rgba(240,165,0,0.3);padding:10px 20px;align-items:center;gap:12px;font-family:'Geist Mono',monospace;font-size:12px;color:#f0a500">
+  <span>&#9888;</span>
+  <span>Nie można połączyć z API. Uruchom lokalny proxy serwer:</span>
+  <code style="background:#111;padding:3px 8px;border-radius:4px;color:#dde6f0">python dashboard/serve.py</code>
+  <span style="margin:0 4px">&#8594; otwórz</span>
+  <a href="http://localhost:8890" style="color:#3d9eff">http://localhost:8890</a>
+</div>
+
+<div class="main">
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="card">
+      <div class="card-label">Portfolio Equity</div>
+      <div class="stat-big"><span id="sEq">—</span><span class="badge badge-g" id="sPnlPct">—</span></div>
+      <div class="stat-sub">initial $10,000 &nbsp;·&nbsp; pnl <span id="sPnlAbs">—</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Open Positions</div>
+      <div class="stat-big"><span id="sPos">—</span><span style="color:var(--txt-dim);font-size:16px">/ 3</span></div>
+      <div class="stat-sub"><span id="sPend">—</span> pending</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Trades Closed</div>
+      <div class="stat-big"><span id="sTrades">—</span></div>
+      <div class="stat-sub"><span id="sToday">—</span> today</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Last Trade R</div>
+      <div class="stat-big"><span id="sLastR">—</span></div>
+      <div class="stat-sub" id="sLastMeta">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Win Rate</div>
+      <div class="stat-big"><span id="sWR">—</span></div>
+      <div class="stat-sub" id="sWRsub">—</div>
+    </div>
+  </div>
+
+  <!-- EQUITY CHART -->
+  <div class="eq-card">
+    <div class="eq-header">
+      <span class="eq-title">Equity Curve</span>
+      <span class="eq-meta">from paper_trading_ibkr.csv · IBKR paper account</span>
+    </div>
+    <div class="eq-wrap"><canvas id="eqCanvas"></canvas></div>
+  </div>
+
+  <!-- SYMBOL GRID -->
+  <div class="sym-grid" id="symGrid">
+    <!-- filled by JS -->
+  </div>
+
+  <!-- TRADES TABLE -->
+  <div class="trades-card">
+    <div class="trades-header">
+      <div>
+        <div class="trades-title">Closed Trades</div>
+        <div class="trades-meta">all pairs · newest first · paper_trading_ibkr.csv</div>
+      </div>
+      <div class="filter-btns">
+        <button class="fbtn active" data-filter="ALL">ALL</button>
+        <button class="fbtn" data-filter="EURUSD">EURUSD</button>
+        <button class="fbtn" data-filter="USDJPY">USDJPY</button>
+        <button class="fbtn" data-filter="USDCHF">USDCHF</button>
+        <button class="fbtn" data-filter="AUDJPY">AUDJPY</button>
+        <button class="fbtn" data-filter="CADJPY">CADJPY</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tradesTable">
+        <thead>
+          <tr>
+            <th>Symbol</th><th>Side</th><th>Entry</th><th>Exit</th>
+            <th>SL</th><th>TP</th><th>R</th><th>PnL</th>
+            <th>Reason</th><th>Slip&#8203;page</th><th>Lat&#8203;ency</th><th>Opened</th><th>Closed</th>
+          </tr>
+        </thead>
+        <tbody id="tradesTbody"><tr><td colspan="12" style="color:var(--txt-dim);text-align:center;padding:20px">No trades yet</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- BOT LOG PANEL -->
+  <div class="trades-card" id="logPanel">
+    <div class="trades-header">
+      <div>
+        <div class="trades-title">Bot Log <span style="font-size:10px;color:var(--txt-dim);font-weight:400">(last 50 lines)</span></div>
+        <div class="trades-meta">bojkofx.log · live view</div>
+      </div>
+      <button class="fbtn" id="logToggle" onclick="toggleLog()">Show</button>
+    </div>
+    <div id="logContent" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:300px;overflow-y:auto">
+      <pre id="logLines" style="font-family:Geist Mono,monospace;font-size:10px;color:var(--txt-dim);white-space:pre-wrap;line-height:1.5">—</pre>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- BOTTOM STRIP -->
+<div id="strip"><div id="strip-fill"></div></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════
+const API_BASE         = "";   // proxy: serve.py forwards /api/* to VM
+const API_KEY          = "0ea9522009779654decab58134a352e6";
+const REFRESH_INTERVAL = 60000;
+const INITIAL_EQUITY   = 10000;
+const SYMBOLS          = ["EURUSD", "USDJPY", "USDCHF", "AUDJPY", "CADJPY"];
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let eqChart    = null;
+let cdRemain   = 60;
+let activeFilter = "ALL";
+
+// ═══════════════════════════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════════════════════════
+async function apiFetch(path) {
+  const resp = await fetch(API_BASE + path, { headers: { "X-API-Key": API_KEY } });
+  if (!resp.ok) throw new Error(`${path} → ${resp.status}`);
+  return resp.json();
+}
+
+function setOffline(reason) {
+  const pill = document.getElementById('botPill');
+  const lbl  = document.getElementById('botLabel');
+  if (pill) { pill.className = 'pill pill-bot offline'; }
+  if (lbl)  { lbl.textContent = reason || 'OFFLINE'; }
+  // Show hint if it looks like a CORS / connection issue
+  const hint = document.getElementById('corsHint');
+  if (hint && reason && (reason.includes('Failed to fetch') || reason.includes('NetworkError') || reason.includes('CORS'))) {
+    hint.style.display = 'flex';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FETCH ALL
+// ═══════════════════════════════════════════════════════════════
+async function fetchAll() {
+  const [statusR, eqR, ...rest] = await Promise.allSettled([
+    apiFetch('/api/status'),
+    apiFetch('/api/equity_history'),
+    ...SYMBOLS.map(s => apiFetch(`/api/candles/${s}`)),
+    ...SYMBOLS.map(s => apiFetch(`/api/trades/${s}`)),
+    apiFetch('/api/log_tail'),
+  ]);
+
+  const candlesResults = rest.slice(0, SYMBOLS.length);
+  const tradesResults  = rest.slice(SYMBOLS.length, SYMBOLS.length * 2);
+  const logResult      = rest[SYMBOLS.length * 2];
+
+  const candlesMap = {};
+  const tradesMap  = {};
+  SYMBOLS.forEach((s, i) => {
+    candlesMap[s] = candlesResults[i].status === 'fulfilled' ? candlesResults[i].value : null;
+    tradesMap[s]  = tradesResults[i].status  === 'fulfilled' ? tradesResults[i].value  : [];
+  });
+
+  if (statusR.status === 'fulfilled') {
+    const d = statusR.value;
+    // Debug: log raw values
+    console.log('[fetchAll] bot_alive:', d.bot_alive, 'equity:', d?.portfolio?.equity, 'svc:', d?.service_state);
+    const dbg = document.getElementById('dbgBar');
+    if (dbg) dbg.textContent = `API: alive=${d.bot_alive} svc=${d.service_state||'?'} eq=${d?.portfolio?.equity}`;
+    updatePortfolio(d);
+    updateSymbolCards(d, candlesMap, tradesMap);
+  } else {
+    console.error('status fetch failed:', statusR.reason);
+    setOffline(statusR.reason ? statusR.reason.message : 'OFFLINE');
+  }
+
+  if (eqR.status === 'fulfilled') updateEquityChart(eqR.value);
+  else console.error('equity_history fetch failed:', eqR.reason);
+
+  const allTrades = Object.values(tradesMap).flat().filter(Boolean);
+  updateTradesTable(allTrades);
+  updateWinRate(allTrades);
+
+  if (logResult && logResult.status === 'fulfilled') updateLogPanel(logResult.value);
+
+  resetStrip();
+  cdRemain = 60;
+}
+
+function toggleLog() {
+  const c = document.getElementById('logContent');
+  const b = document.getElementById('logToggle');
+  if (c.style.display === 'none') {
+    c.style.display = 'block';
+    b.textContent = 'Hide';
+    b.classList.add('active');
+  } else {
+    c.style.display = 'none';
+    b.textContent = 'Show';
+    b.classList.remove('active');
+  }
+}
+
+function updateLogPanel(data) {
+  const el = document.getElementById('logLines');
+  if (!data || !data.lines) return;
+  // Colorise keywords
+  el.innerHTML = data.lines.map(line => {
+    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    if (/ERROR|EXCEPTION/i.test(esc)) return `<span style="color:var(--red)">${esc}</span>`;
+    if (/WARNING|WARN/i.test(esc))    return `<span style="color:var(--amber)">${esc}</span>`;
+    if (/SIGNAL|BOS|LONG|SHORT/i.test(esc)) return `<span style="color:var(--green)">${esc}</span>`;
+    if (/Connected|Synchronization/i.test(esc)) return `<span style="color:var(--blue)">${esc}</span>`;
+    return `<span>${esc}</span>`;
+  }).join('\n');
+  // Auto-scroll to bottom
+  const container = document.getElementById('logContent');
+  if (container.style.display !== 'none') container.scrollTop = container.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PORTFOLIO
+// ═══════════════════════════════════════════════════════════════
+function updatePortfolio(data) {
+  const p = data.portfolio;
+  if (!p) { console.warn('updatePortfolio: no portfolio in data', data); return; }
+
+  // Bot pill — use bot_alive OR service_state
+  const pill = document.getElementById('botPill');
+  const lbl  = document.getElementById('botLabel');
+  const svc  = data.service_state || '';
+  const alive = data.bot_alive || svc === 'active' || svc === 'activating';
+  if (alive) {
+    pill.className = 'pill pill-bot';
+    lbl.textContent = svc === 'activating' ? 'STARTING…' : 'BOT ONLINE';
+  } else {
+    pill.className = 'pill pill-bot offline';
+    lbl.textContent = 'BOT OFFLINE';
+  }
+
+  // Kill switch
+  document.getElementById('ksPill').style.display = p.kill_switch ? 'inline-flex' : 'none';
+
+  // Equity card
+  const eq    = p.equity ?? 0;
+  const pnl   = p.pnl_total ?? 0;
+  const pnlPct = p.pnl_pct ?? 0;
+  document.getElementById('sEq').textContent = fmtUSD(eq);
+  const pctEl = document.getElementById('sPnlPct');
+  pctEl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%';
+  pctEl.className   = 'badge ' + (pnlPct >= 0 ? 'badge-g' : 'badge-r');
+  document.getElementById('sPnlAbs').textContent =
+    (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+  document.title = `BojkoFx — ${fmtUSD(eq)}`;
+
+  // Open positions
+  document.getElementById('sPos').textContent   = p.open_positions ?? 0;
+  document.getElementById('sPend').textContent  = p.pending_orders ?? 0;
+
+  // Trades closed
+  document.getElementById('sTrades').textContent = p.trades_closed_total ?? 0;
+  document.getElementById('sToday').textContent  = p.trades_closed_today ?? 0;
+
+  // Last trade R
+  const lr    = p.last_trade_R;
+  const lrEl  = document.getElementById('sLastR');
+  if (lr != null) {
+    lrEl.textContent = (lr >= 0 ? '+' : '') + lr.toFixed(2) + 'R';
+    lrEl.className   = lr >= 0 ? 'pos-g' : 'pos-r';
+  } else {
+    lrEl.textContent = '—'; lrEl.className = '';
+  }
+  const reason = p.last_trade_exit_reason ?? '';
+  const exTs   = p.last_trade_exit_ts;
+  const exTime = exTs ? new Date(exTs).toISOString().slice(11,16) : '';
+  document.getElementById('sLastMeta').textContent =
+    [reason, exTime].filter(Boolean).join(' · ') || '—';
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  WIN RATE
+// ═══════════════════════════════════════════════════════════════
+function updateWinRate(trades) {
+  if (!trades.length) {
+    document.getElementById('sWR').textContent = '—';
+    document.getElementById('sWRsub').textContent = '—';
+    return;
+  }
+  const wins   = trades.filter(t => (t.R ?? 0) > 0).length;
+  const total  = trades.length;
+  const avgR   = (trades.reduce((a,t) => a + (t.R ?? 0), 0) / total).toFixed(2);
+  const pct    = ((wins / total) * 100).toFixed(1);
+  document.getElementById('sWR').textContent = `${wins} / ${total}`;
+  document.getElementById('sWRsub').textContent = `${pct}% · avg ${avgR >= 0 ? '+' : ''}${avgR}R`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EQUITY CHART
+// ═══════════════════════════════════════════════════════════════
+function updateEquityChart(data) {
+  if (!data || !data.length) return;
+  const labels = data.map(d => {
+    const dt = new Date(d.ts);
+    return dt.toLocaleDateString('en-US', { month:'short', day:'2-digit' });
+  });
+  const values = data.map(d => d.equity);
+
+  const ctx = document.getElementById('eqCanvas').getContext('2d');
+  if (eqChart) { eqChart.destroy(); eqChart = null; }
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 180);
+  grad.addColorStop(0,   'rgba(13,219,140,0.18)');
+  grad.addColorStop(1,   'rgba(13,219,140,0)');
+
+  eqChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: '#0ddb8c',
+        borderWidth: 1.5,
+        backgroundColor: grad,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#0ddb8c',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#131618',
+          borderColor: '#1c2026',
+          borderWidth: 1,
+          titleColor: '#48535f',
+          bodyColor: '#dde6f0',
+          bodyFont: { family: 'Geist Mono', size: 12 },
+          callbacks: {
+            label: ctx => '$' + (ctx.parsed.y ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#48535f', font: { family: 'Geist Mono', size: 10 }, maxTicksLimit: 10 }, grid: { color: '#1c2026' }, border: { color: '#1c2026' } },
+        y: { ticks: { color: '#48535f', font: { family: 'Geist Mono', size: 10 }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#1c2026' }, border: { color: '#1c2026' } }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SYMBOL CARDS
+// ═══════════════════════════════════════════════════════════════
+function buildSymCards() {
+  const grid = document.getElementById('symGrid');
+  grid.innerHTML = '';
+  SYMBOLS.forEach(sym => {
+    grid.insertAdjacentHTML('beforeend', `
+      <div class="sym-card" id="sc-${sym}">
+        <div class="sym-header">
+          <span class="sym-name">${sym}</span>
+          <span class="pill" id="pos-pill-${sym}">— FLAT</span>
+        </div>
+        <div class="sym-stats">
+          <div class="sym-cell"><div class="sym-cell-label">Equity</div><div class="sym-cell-val" id="sc-eq-${sym}">—</div></div>
+          <div class="sym-cell"><div class="sym-cell-label">PnL</div><div class="sym-cell-val" id="sc-pnl-${sym}">—</div></div>
+          <div class="sym-cell"><div class="sym-cell-label">Trades</div><div class="sym-cell-val" id="sc-tr-${sym}">—</div></div>
+          <div class="sym-cell"><div class="sym-cell-label" id="sc-l1a-${sym}">Entry</div><div class="sym-cell-val" id="sc-l1-${sym}">—</div></div>
+          <div class="sym-cell"><div class="sym-cell-label" id="sc-l2a-${sym}">SL</div><div class="sym-cell-val" id="sc-l2-${sym}">—</div></div>
+          <div class="sym-cell"><div class="sym-cell-label" id="sc-l3a-${sym}">TP</div><div class="sym-cell-val" id="sc-l3-${sym}">—</div></div>
+        </div>
+        <div class="candle-wrap"><canvas id="cv-${sym}"></canvas></div>
+        <div class="levels-bar" id="lvl-${sym}"><span style="color:var(--txt-dim);font-size:10px;font-family:Geist Mono,monospace">No active position</span></div>
+      </div>`);
+  });
+}
+
+function updateSymbolCards(statusData, candlesMap, tradesMap) {
+  SYMBOLS.forEach(sym => {
+    const sd = statusData.symbols?.[sym];
+    if (!sd) return;
+
+    // Position pill
+    const pill = document.getElementById(`pos-pill-${sym}`);
+    if (sd.pending) {
+      pill.textContent = '⏳ PENDING';
+      pill.style.cssText = 'background:var(--ad);border:1px solid rgba(240,165,0,.3);color:var(--amber)';
+    } else if (sd.pos === 'LONG') {
+      pill.textContent = '▲ LONG';
+      pill.style.cssText = 'background:var(--gd);border:1px solid rgba(13,219,140,.3);color:var(--green)';
+    } else if (sd.pos === 'SHORT') {
+      pill.textContent = '▼ SHORT';
+      pill.style.cssText = 'background:var(--rd);border:1px solid rgba(245,69,92,.3);color:var(--red)';
+    } else {
+      pill.textContent = '— FLAT';
+      pill.style.cssText = 'background:rgba(72,83,95,.15);border:1px solid var(--border2);color:var(--txt-dim)';
+    }
+
+    // Stats cells
+    const eq  = sd.equity ?? 0;
+    const ini = INITIAL_EQUITY / SYMBOLS.length;
+    const pnl = eq - ini;
+    document.getElementById(`sc-eq-${sym}`).textContent  = fmtUSD(eq);
+    const pnlEl = document.getElementById(`sc-pnl-${sym}`);
+    pnlEl.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+    pnlEl.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById(`sc-tr-${sym}`).textContent = sd.trades_closed_total ?? 0;
+
+    const hasPos = sd.pos !== 'NONE' || sd.pending;
+    if (hasPos) {
+      document.getElementById(`sc-l1a-${sym}`).textContent = 'Entry';
+      document.getElementById(`sc-l2a-${sym}`).textContent = 'SL';
+      document.getElementById(`sc-l3a-${sym}`).textContent = 'TP';
+      document.getElementById(`sc-l1-${sym}`).textContent = fmtP(sd.pos_entry);
+      const slEl = document.getElementById(`sc-l2-${sym}`);
+      slEl.textContent = fmtP(sd.pos_sl); slEl.style.color='var(--red)';
+      const tpEl = document.getElementById(`sc-l3-${sym}`);
+      tpEl.textContent = fmtP(sd.pos_tp); tpEl.style.color='var(--green)';
+    } else {
+      document.getElementById(`sc-l1a-${sym}`).textContent = 'Last R';
+      document.getElementById(`sc-l2a-${sym}`).textContent = 'Reason';
+      document.getElementById(`sc-l3a-${sym}`).textContent = 'Bar';
+      const lr = sd.last_trade_R;
+      const lrEl = document.getElementById(`sc-l1-${sym}`);
+      if (lr != null) {
+        lrEl.textContent = (lr >= 0 ? '+' : '') + lr.toFixed(2) + 'R';
+        lrEl.style.color = lr >= 0 ? 'var(--green)' : 'var(--red)';
+      } else { lrEl.textContent = '—'; lrEl.style.color = ''; }
+      document.getElementById(`sc-l2-${sym}`).textContent = sd.last_trade_exit_reason ?? '—';
+      document.getElementById(`sc-l3-${sym}`).textContent =
+        sd.last_bar_ts ? new Date(sd.last_bar_ts).toISOString().slice(11,16) : '—';
+    }
+
+    // Candle chart
+    drawCandles(sym, candlesMap[sym] || [], sd, (tradesMap[sym] || []).slice(0, 10));
+
+    // Levels bar
+    const lvl = document.getElementById(`lvl-${sym}`);
+    if (hasPos && (sd.pos_entry || sd.pos_sl || sd.pos_tp)) {
+      lvl.innerHTML = [
+        sd.pos_entry != null ? `<span class="lvl-item"><span class="lvl-dash" style="background:var(--blue)"></span>Entry ${fmtP(sd.pos_entry)}</span>` : '',
+        sd.pos_sl    != null ? `<span class="lvl-item"><span class="lvl-dash" style="background:var(--red)"></span>SL ${fmtP(sd.pos_sl)}</span>` : '',
+        sd.pos_tp    != null ? `<span class="lvl-item"><span class="lvl-dash" style="background:var(--green)"></span>TP ${fmtP(sd.pos_tp)}</span>` : '',
+      ].join('');
+    } else {
+      lvl.innerHTML = '<span style="color:var(--txt-dim);font-size:10px;font-family:Geist Mono,monospace">No active position</span>';
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CANDLESTICK CANVAS
+// ═══════════════════════════════════════════════════════════════
+function drawCandles(sym, bars, sd, trades) {
+  const el  = document.getElementById(`cv-${sym}`);
+  const dpr = window.devicePixelRatio || 1;
+  const W   = el.offsetWidth  || el.parentElement.offsetWidth;
+  const H   = 190;
+  el.width  = W * dpr;
+  el.height = H * dpr;
+  el.style.width  = W + 'px';
+  el.style.height = H + 'px';
+  const ctx = el.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#0d0f11';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!bars || !bars.length) {
+    ctx.fillStyle = '#48535f';
+    ctx.font = '11px Geist Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data', W / 2, H / 2);
+    return;
+  }
+
+  const pad = { t: 8, b: 22, l: 50, r: 8 };
+  const cW  = W - pad.l - pad.r;
+  const cH  = H - pad.t - pad.b;
+
+  // ── Fixed bar width: 1 bar = 1 slot, slots fill canvas ───────────────────
+  const n   = bars.length;
+  const bw  = cW / n;                          // pixels per 1h bar
+  const body = Math.max(bw * 0.6, 1);
+
+  // ── Detect weekend/gap breaks (gap > 2h between consecutive bars) ─────────
+  const GAP_MS = 4 * 3600 * 1000;
+  const gapsBefore = new Array(n).fill(false);  // gapsBefore[i] = gap before bar i
+  for (let i = 1; i < n; i++) {
+    const diff = new Date(bars[i].ts) - new Date(bars[i-1].ts);
+    if (diff > GAP_MS) gapsBefore[i] = true;
+  }
+
+  // ── Price range ───────────────────────────────────────────────────────────
+  let hi = -Infinity, lo = Infinity;
+  bars.forEach(b => { if (b.high > hi) hi = b.high; if (b.low < lo) lo = b.low; });
+  [sd.pos_entry, sd.pos_sl, sd.pos_tp].forEach(v => {
+    if (v != null) { if (v > hi) hi = v; if (v < lo) lo = v; }
+  });
+  const range = hi - lo || 1;
+  const buf   = range * 0.05;
+  const hiB   = hi + buf, loB = lo - buf, rB = hiB - loB;
+  const toY   = v => pad.t + (1 - (v - loB) / rB) * cH;
+
+  // ── Horizontal grid lines ─────────────────────────────────────────────────
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const y = pad.t + (i / steps) * cH;
+    ctx.strokeStyle = '#1c2026';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    const pv = hiB - (i / steps) * rB;
+    ctx.fillStyle = '#48535f';
+    ctx.font = '9px Geist Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(fmtP(pv), pad.l - 3, y + 3);
+  }
+
+  // ── Weekend gap markers (vertical dashed line) ────────────────────────────
+  for (let i = 1; i < n; i++) {
+    if (!gapsBefore[i]) continue;
+    const x = pad.l + i * bw;                  // left edge of bar i = right after gap
+    ctx.save();
+    ctx.strokeStyle = '#48535f';
+    ctx.lineWidth   = 1;
+    ctx.globalAlpha = 0.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.t);
+    ctx.lineTo(x, H - pad.b);
+    ctx.stroke();
+    ctx.restore();
+    // Label the date after the gap
+    const dt = new Date(bars[i].ts);
+    const lbl = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    ctx.fillStyle = '#48535f';
+    ctx.font = '8px Geist Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(lbl, x + 2, H - pad.b + 11);
+  }
+
+  // ── Candles ───────────────────────────────────────────────────────────────
+  bars.forEach((b, i) => {
+    const cx  = pad.l + i * bw + bw / 2;
+    const xb  = pad.l + i * bw + (bw - body) / 2;
+    const up  = b.close >= b.open;
+    const yO  = toY(b.open); const yC = toY(b.close);
+    const yH  = toY(b.high); const yL = toY(b.low);
+    const top = Math.min(yO, yC); const bh = Math.max(Math.abs(yC - yO), 1);
+
+    ctx.strokeStyle = up ? '#0ddb8c' : '#f5455c';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, yH); ctx.lineTo(cx, yL); ctx.stroke();
+
+    ctx.fillStyle = up ? 'rgba(13,219,140,0.5)' : 'rgba(245,69,92,0.5)';
+    ctx.fillRect(xb, top, body, bh);
+  });
+
+  // ── X-axis baseline ───────────────────────────────────────────────────────
+  ctx.strokeStyle = '#252b33';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+
+  // ── X-axis time labels: date on day-change, hour every 6h ──────────────────
+  ctx.font = '9px Geist Mono, monospace';
+  let lastDay = null;
+  let lastLabelX = -999;  // prevent overlapping labels
+  const MIN_LABEL_GAP = 28; // min pixels between labels
+
+  bars.forEach((b, i) => {
+    const dt   = new Date(b.ts);
+    const day  = dt.getUTCDate();
+    const hour = dt.getUTCHours();
+    const bx   = pad.l + i * bw + bw / 2;
+
+    // Skip if gap label already placed here
+    if (gapsBefore[i]) { lastDay = day; return; }
+
+    const isNewDay  = lastDay !== day;
+    const isHourMark = (hour % 6 === 0);  // 00:00, 06:00, 12:00, 18:00
+
+    if (!isNewDay && !isHourMark) return;
+    if (bx - lastLabelX < MIN_LABEL_GAP) { if (isNewDay) lastDay = day; return; }
+
+    const lbl = isNewDay
+      ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : `${String(hour).padStart(2,'0')}:00`;
+
+    ctx.strokeStyle = '#252b33';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx, H - pad.b);
+    ctx.lineTo(bx, H - pad.b + (isNewDay ? 4 : 2));
+    ctx.stroke();
+
+    ctx.fillStyle = isNewDay ? '#b8c4d0' : '#48535f';
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, bx, H - pad.b + 12);
+
+    lastDay    = day;
+    lastLabelX = bx;
+  });
+
+  // ── Trade markers ─────────────────────────────────────────────────────────
+  const closestIdx = ts => {
+    const t = new Date(ts).getTime();
+    let best = 0, bestD = Infinity;
+    bars.forEach((b, i) => { const d = Math.abs(new Date(b.ts).getTime() - t); if (d < bestD) { bestD = d; best = i; } });
+    return best;
+  };
+
+  trades.forEach(tr => {
+    if (tr.entry_ts) {
+      const i = closestIdx(tr.entry_ts);
+      const x = pad.l + i * bw + bw / 2;
+      drawTriangle(ctx, x, toY(bars[i].low) + 8, '#3d9eff', true);
+    }
+    if (tr.exit_ts) {
+      const i = closestIdx(tr.exit_ts);
+      const x = pad.l + i * bw + bw / 2;
+      const col = tr.exit_reason === 'TP' ? '#0ddb8c' : '#f5455c';
+      drawTriangle(ctx, x, toY(bars[i].high) - 8, col, false);
+    }
+  });
+
+  // ── Dashed level lines (entry / SL / TP) ─────────────────────────────────
+  if (sd.pos !== 'NONE' || sd.pending) {
+    [
+      { v: sd.pos_entry, c: '#3d9eff' },
+      { v: sd.pos_sl,    c: '#f5455c' },
+      { v: sd.pos_tp,    c: '#0ddb8c' },
+    ].forEach(({ v, c }) => {
+      if (v == null) return;
+      const y = toY(v);
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = c;
+      ctx.lineWidth   = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.restore();
+    });
+  }
+}
+
+function drawTriangle(ctx, x, y, color, up) {
+  const s = 5;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  if (up) {
+    ctx.moveTo(x, y - s); ctx.lineTo(x + s, y + s); ctx.lineTo(x - s, y + s);
+  } else {
+    ctx.moveTo(x, y + s); ctx.lineTo(x + s, y - s); ctx.lineTo(x - s, y - s);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TRADES TABLE
+// ═══════════════════════════════════════════════════════════════
+function updateTradesTable(allTrades) {
+  allTrades.sort((a, b) => new Date(b.exit_ts||0) - new Date(a.exit_ts||0));
+  const tbody = document.getElementById('tradesTbody');
+  if (!allTrades.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="color:var(--txt-dim);text-align:center;padding:20px">No trades yet</td></tr>';
+    return;
+  }
+    tbody.innerHTML = allTrades.map(t => {
+    const R    = t.R ?? 0;
+    const pnl  = t.pnl ?? 0;
+    const sym  = t.symbol ?? '';
+    const hide = (activeFilter !== 'ALL' && activeFilter !== sym) ? ' trow-hidden' : '';
+    const reasonBadge = t.exit_reason === 'TP'
+      ? `<span class="badge badge-g">${t.exit_reason}</span>`
+      : t.exit_reason === 'SL'
+      ? `<span class="badge badge-r">${t.exit_reason}</span>`
+      : t.exit_reason
+      ? `<span class="badge badge-a">${t.exit_reason}</span>`
+      : '—';
+    const slip = t.slippage_entry_pips != null ? t.slippage_entry_pips.toFixed(1) + 'p' : '—';
+    const lat  = t.latency_ms != null ? Math.round(t.latency_ms) + 'ms' : '—';
+    return `<tr data-sym="${sym}" class="${hide}">
+      <td><b>${sym}</b></td>
+      <td style="color:${t.side==='BUY'||t.side==='LONG'?'var(--green)':'var(--red)'}">${t.side??'—'}</td>
+      <td>${fmtP(t.entry_price)}</td>
+      <td>${fmtP(t.exit_price)}</td>
+      <td style="color:var(--red)">${fmtP(t.sl_price)}</td>
+      <td style="color:var(--green)">${fmtP(t.tp_price)}</td>
+      <td><span class="badge ${R>0?'badge-g':'badge-r'}">${R>=0?'+':''}${R.toFixed(2)}R</span></td>
+      <td style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?'+$':'-$'}${Math.abs(pnl).toFixed(2)}</td>
+      <td>${reasonBadge}</td>
+      <td style="color:var(--txt-dim)">${slip}</td>
+      <td style="color:var(--txt-dim)">${lat}</td>
+      <td>${fmtDate(t.entry_ts)}</td>
+      <td>${fmtDate(t.exit_ts)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FILTER BUTTONS
+// ═══════════════════════════════════════════════════════════════
+document.querySelectorAll('.fbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeFilter = btn.dataset.filter;
+    document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#tradesTbody tr').forEach(row => {
+      const sym = row.dataset.sym;
+      row.classList.toggle('trow-hidden', activeFilter !== 'ALL' && sym !== activeFilter);
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  COUNTDOWN + CLOCK
+// ═══════════════════════════════════════════════════════════════
+function tickCountdown() {
+  cdRemain = Math.max(0, cdRemain - 1);
+  document.getElementById('cdText').textContent = cdRemain + 's';
+  const circ = 56.55;
+  document.getElementById('cdRing').style.strokeDashoffset =
+    circ * (1 - cdRemain / 60);
+
+  // Live UTC clock
+  const now = new Date();
+  const hh  = String(now.getUTCHours()).padStart(2,'0');
+  const mm  = String(now.getUTCMinutes()).padStart(2,'0');
+  const ss  = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('utcClock').textContent = `${hh}:${mm}:${ss} UTC`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BOTTOM STRIP
+// ═══════════════════════════════════════════════════════════════
+function resetStrip() {
+  const strip = document.getElementById('strip');
+  const old   = document.getElementById('strip-fill');
+  if (old) old.remove();
+  const fill = document.createElement('div');
+  fill.id = 'strip-fill';
+  strip.appendChild(fill);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FORMATTERS
+// ═══════════════════════════════════════════════════════════════
+function fmtUSD(v) {
+  if (v == null) return '—';
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtP(v) {
+  if (v == null) return '—';
+  const n = Number(v);
+  if (isNaN(n)) return '—';
+  return n < 0.1 ? n.toFixed(5) : n < 10 ? n.toFixed(4) : n < 1000 ? n.toFixed(3) : n.toFixed(2);
+}
+function fmtDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-US', { month:'short', day:'2-digit' }) +
+    ' ' + String(d.getUTCHours()).padStart(2,'0') + ':' +
+    String(d.getUTCMinutes()).padStart(2,'0');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+buildSymCards();
+fetchAll();
+setInterval(fetchAll, REFRESH_INTERVAL);
+setInterval(tickCountdown, 1000);
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+

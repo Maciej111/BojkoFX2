@@ -1,0 +1,79 @@
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# ── Virtual environments ────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+venv_test/
+
+# ── Secrets / credentials ───────────────────────────────────────────────────
+.env
+*.env
+!*.env.example
+!US100/deploy/bojkoidx.env
+credentials/credentials.json
+credentials/token.json
+credentials/ib.cre
+
+# ── Data (too large for git) ────────────────────────────────────────────────
+data/raw/
+data/bars/
+data/live/
+data/proof_v2/
+data/outputs/
+data/raw_dl/
+data/raw_dl_fx/
+data/state/
+data/live_bars_local/
+data/bars_validated/
+data/bars_idx/
+data/research/
+**/data/bars/
+**/data/state/
+**/data/live_bars_local/
+**/data/bars_validated/
+**/data/outputs/
+**/data/raw_dl/
+**/data/raw_dl_fx/
+
+# ── Backtest outputs ─────────────────────────────────────────────────────────
+backtests/outputs/*.csv
+backtests/outputs/*.json
+FX/backtests/outputs/*.csv
+FX/backtests/outputs/*.json
+US100/backtests/outputs/*.csv
+US100/backtests/outputs/*.json
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+logs/*.csv
+logs/*.log
+FX/logs/*.csv
+US100/logs/*.csv
+
+# ── IDE ─────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+
+# ── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Reports (generated) ─────────────────────────────────────────────────────
+reports/*.png
+
+# ── Temp / diagnostic ───────────────────────────────────────────────────────
+*.log
+*.sh.log
+chk*.txt
+snap.txt

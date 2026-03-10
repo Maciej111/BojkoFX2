@@ -1,0 +1,118 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# backtests/config_backtest.yaml
+# Główna konfiguracja pipeline'u research/backtest
+# NIE modyfikuje kodu produkcyjnego (src/)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Dane wejściowe ────────────────────────────────────────────────────────────
+data:
+  # Katalog z plikami m60 bid (timestamp w ms, cols: timestamp,open,high,low,close)
+  m60_dir: "data/raw_dl_fx/download/m60"
+  # Wzorzec nazwy: {symbol}_m60_bid_{range}.csv  (lowercase symbol)
+  # Jeśli dostępne oba pliki _2021_2024 i _2021_2025, użyj _2021_2025 gdy istnieje
+  prefer_2025: true
+
+# ── Symbole do testów ─────────────────────────────────────────────────────────
+symbols:
+  - EURUSD
+  - USDJPY
+  - USDCHF
+  - AUDJPY
+  - CADJPY
+
+# ── Podział czasowy (walk-forward) ────────────────────────────────────────────
+# Każdy fold: {train: [start, end], val: [start, end], test: [start, end]}
+# Format: YYYY-MM-DD
+folds:
+  - name: "fold_2021_2025"
+    train_start: "2021-01-01"
+    train_end:   "2022-12-31"
+    val_start:   "2023-01-01"
+    val_end:     "2023-12-31"
+    test_start:  "2024-01-01"
+    test_end:    "2025-12-31"
+
+# Rolling quarters (Q1-Q4 2024, Q1-Q4 2025) jako dodatkowe foldy
+rolling_quarters:
+  enabled: true
+  years: [2024, 2025]
+
+# ── Parametry strategii (baseline, jak produkcja) ────────────────────────────
+strategy:
+  pivot_lookback: 3
+  entry_offset_atr_mult: 0.3
+  sl_buffer_atr_mult: 0.1
+  rr: 3.0
+  ttl_bars: 50
+  atr_period: 14
+  # Tryb fill gdy SL i TP trafione w tym samym barze:
+  # conservative (SL first) | optimistic (TP first)
+  same_bar_mode: "conservative"
+
+# ── Filtr sesji (jak produkcja) ───────────────────────────────────────────────
+session_filter:
+  EURUSD: {start: 8,  end: 21}
+  USDJPY: {start: 0,  end: 24}
+  USDCHF: {start: 8,  end: 21}
+  AUDJPY: {start: 0,  end: 21}
+  CADJPY: {start: 0,  end: 24}
+
+# ── Portfolio constraints ─────────────────────────────────────────────────────
+portfolio:
+  max_positions_total: 3       # jak produkcja; ustaw null = bez limitu
+  max_positions_per_symbol: 1
+  initial_equity: 10000.0      # equity startowe do obliczeń risk_first
+
+# ── Eksperyment: siatka parametrów ───────────────────────────────────────────
+experiments:
+
+  # A) Baseline
+  baseline:
+    adx_gate: null
+    adx_slope: false
+    atr_pct_min: 0
+    atr_pct_max: 100
+    sizing: "fixed_units"
+    fixed_units: 5000
+    rr_mode: "fixed"
+    rr: 3.0
+
+  # B) ADX gate (na D1)
+  adx_thresholds: [18, 20, 22, 25]
+  adx_slope_options: [false, true]
+
+  # C) ATR percentile filter
+  atr_pct_min_values: [0, 10, 20]
+  atr_pct_max_values: [70, 80, 85, 90, 100]
+  atr_pct_window: 100   # ile barów do obliczenia percentyla ATR
+
+  # D) Position sizing
+  sizing_modes:
+    - {mode: "fixed_units", units: 5000}
+    - {mode: "risk_first",  risk_pct: 0.0025}   # 0.25%
+    - {mode: "risk_first",  risk_pct: 0.005}    # 0.5%
+    - {mode: "risk_first",  risk_pct: 0.0075}   # 0.75%
+
+  # E) Adaptive RR
+  rr_modes:
+    - {mode: "fixed", rr: 3.0}
+    - {mode: "adx_map_v1"}   # (20-25)->2.5, (25-35)->3.0, (>35)->3.5
+    - {mode: "adx_map_v2"}   # (20-25)->2.0, (25-35)->3.0, (>35)->4.0
+    - {mode: "atr_pct_map"}  # low(<=20)->2.0, mid(20-80)->3.0, high(>=80)->2.5
+
+  # F) Pipeline 2-stage
+  pipeline:
+    stage1_top_n: 10         # top N z każdego bloku do stage2
+    max_experiments: 350     # łączne max eksperymentów
+    seed: 42
+
+# ── Output ────────────────────────────────────────────────────────────────────
+output:
+  dir: "backtests/outputs"
+  results_all_csv: "results_all.csv"
+  results_summary_csv: "results_summary.csv"
+  top_configs_json: "top_configs.json"
+  report_md: "report.md"
+  equity_curve_plots: true   # wymaga matplotlib
+  histogram_plots: true
+

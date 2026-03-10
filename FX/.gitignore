@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment / secrets
+.env
+*.env
+!*.env.example
+
+# Data (too large for git)
+data/raw/
+data/bars/
+data/live/
+data/proof_v2/
+data/outputs/
+data/raw_dl/
+data/raw_dl_fx/
+data/state/
+data/live_bars_local/
+data/bars_validated/
+
+# Backtest outputs — large CSVs (MD reports are committed)
+backtests/outputs/*.csv
+backtests/outputs/*.json
+
+# Credentials
+credentials/credentials.json
+credentials/token.json
+credentials/ib.cre
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/*.csv
+
+# Reports (generated)
+reports/*.png
+reports/*.md
+reports/*.csv
+
+# Temporary / diagnostic files in project root
+/*.log
+/*.png
+/*.sh.log
+# Temp txt files (keep named docs like README, INSTRUKCJA etc.)
+/account.log
+/botlog_*.txt
+/chk*.txt
+/snap.txt
+/st*.txt
+/svc*.txt
+/r.txt
+/r[0-9]*.txt
+/fin.txt
+/final.txt
+/out.txt
+/ps.txt
+/ps[0-9]*.txt
+/show.txt
+/status_now.txt
+/vm_*.txt
+/vm_*.py
+/e[0-9]*.txt
+/nul
+
+# Root-level loose copies of scripts/configs (should live in src/ or scripts/)
+ibkr_marketdata.py
+run_paper_ibkr_gateway.py
+enableapi.sh
+ibc-config.ini
+ibc-config-current.ini
+jts.ini
+jts-now.ini
+jts-current.ini

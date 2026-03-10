@@ -1,0 +1,22 @@
+# Requirements
+pandas>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+pyyaml>=6.0
+tqdm>=4.65.0
+tabulate>=0.9.0
+
+# IBKR Paper Trading (Interactive Brokers)
+ib_insync>=0.9.86
+
+# Utilities
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Dashboard API
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Testing
+pytest>=7.4.0
+

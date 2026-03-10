@@ -1,0 +1,25 @@
+[Unit]
+Description=BojkoIDX Trading Bot — US100/NAS100USD (5m BOS+Pullback)
+After=ibgateway.service network.target
+Requires=ibgateway.service
+
+[Service]
+Type=simple
+User=macie
+WorkingDirectory=/home/macie/bojkoidx/app
+EnvironmentFile=/home/macie/bojkoidx/config/ibkr.env
+
+# Wait for IB Gateway to fully initialise before connecting
+ExecStartPre=/bin/sleep 90
+
+ExecStart=/home/macie/bojkoidx/venv/bin/python -m src.runners.run_live_idx \
+    --allow_live_orders \
+    --log_dir /home/macie/bojkoidx/logs
+
+Restart=always
+RestartSec=60s
+StandardOutput=append:/home/macie/bojkoidx/logs/bojkoidx.log
+StandardError=append:/home/macie/bojkoidx/logs/bojkoidx.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,111 @@
+# Trading System Configuration
+# Updated 2026-03-04 — sizing_mode zmieniony na risk_first (Priorytet 1 z RESEARCH_SUMMARY.md)
+# Updated 2026-03-04 — ADX H4 thr=16 dodany dla EURUSD/USDJPY/USDCHF/AUDJPY (Priorytet 3)
+# Updated 2026-03-08 — Trailing Stop wdrożony dla USDJPY (RR=2.5) i CADJPY (RR=3.0)
+#                       Walidacja trojokresowa: IS 2021-2022 / OOS 2023-2024 / OOS 2025
+#                       USDJPY: +0.147R→+0.162R, CADJPY: +0.230R→+0.183R (oba bija PROD)
+#                       Źródło: reports/TRAILING_STOP_VAL2025_ANALYSIS.md
+strategy:
+  entry_offset_atr_mult: 0.3
+  pullback_max_bars: 50
+  risk_reward: 3.0
+  sl_anchor: "last_pivot"
+  sl_buffer_atr_mult: 0.1
+  pivot_lookback_ltf: 3
+  pivot_lookback_htf: 5
+  confirmation_bars: 1
+  require_close_break: true
+
+# Per-symbol configuration
+# ltf: LTF timeframe  — "H1" or "30m"
+# htf: HTF timeframe  — "D1" or "H4"
+# session_filter: true = restrict new entries to session_start_h..session_end_h UTC
+# session_start_h / session_end_h: UTC hours (inclusive start, exclusive end)
+# adx_h4_gate: min ADX(14) na H4 — None/brak = wyłączony
+# Source: reports/SESSION_ANALYSIS.md (OOS 2023-2024 backtests)
+#         backtests/outputs/adx_v2_report.md (ADX v2 test 2026-03-04)
+# enabled: false = skip symbol entirely
+symbols:
+  EURUSD:
+    ltf: "H1"
+    htf: "D1"
+    session_filter: true
+    session_start_h: 8    # London open — Azja (00-08) marginalny +0.14R
+    session_end_h: 21     # NY close   — Off-hours (21-00) ujemny  -0.17R
+    adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    enabled: true
+  USDJPY:
+    ltf: "H1"
+    htf: "D1"
+    session_filter: false  # 24h — każda sesja pozytywna (min +0.51R), brak sensu filtrować
+    session_start_h: 0
+    session_end_h: 24
+    adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    risk_reward: 2.5      # ZMIANA 2026-03-08: 3.0 → 2.5 dla TS (backtesty: +0.098R vs PROD)
+    trailing_stop:
+      enabled: true
+      ts_r: 2.0           # aktywacja: entry + 2.0R od entry (gdy ruch jedzie 2R)
+      lock_r: 0.5         # przy aktywacji: SL → entry + 0.5R (nie breakeven)
+                          # Walidacja: OOS 2023-2024 +0.147R, OOS 2025 +0.162R
+    enabled: true
+  USDCHF:
+    ltf: "H1"
+    htf: "D1"             # ZMIANA: H4 → D1 (OOS 2025: H4=-0.08R, D1=+0.30R)
+    session_filter: true
+    session_start_h: 8
+    session_end_h: 21     # NY close — Off-hours (21-00) bardzo zly -0.36R
+    adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    enabled: true
+  AUDJPY:
+    ltf: "H1"
+    htf: "D1"
+    session_filter: true
+    session_start_h: 0    # Azja aktywna (+0.45R) — handluj od północy
+    session_end_h: 21     # NY close   — Off-hours (21-00) ujemny -0.17R
+    adx_h4_gate: 16       # ADX H4 >= 16 wymagane (Priorytet 3, 2026-03-04)
+    enabled: true
+  CADJPY:
+    ltf: "H1"
+    htf: "D1"
+    session_filter: false  # 24h ≈ NY session (różnica <0.03R), Off-hours marginalny
+    session_start_h: 0
+    session_end_h: 24
+    atr_pct_filter_min: 10   # Priorytet 2 (2026-03-04): ATR filtr 10-80 dla CADJPY
+    atr_pct_filter_max: 80   # Backtesty: +0.245R delta vs baseline (6/8 pos kw.)
+    # adx_h4_gate: brak — H4 ADX 16 niszczy CADJPY (-24% ExpR, overfit Δ=-0.114R)
+    # ATR 10-80 jest optymalnym i jedynym filtrem dla tej pary
+    risk_reward: 3.0      # bez zmian (TS działa z RR=3.0)
+    trailing_stop:
+      enabled: true
+      ts_r: 2.0           # aktywacja: entry + 2.0R
+      lock_r: 0.5         # przy aktywacji: SL → entry + 0.5R
+                          # Walidacja: OOS 2023-2024 +0.230R, OOS 2025 +0.183R
+    enabled: true
+
+risk:
+  sizing_mode: "risk_first"   # ZMIANA 2026-03-04: risk_first zamiast fixed_units
+  risk_fraction_start: 0.01   # 1% equity per trade → $30,000 × 1% = $300/trade
+  default_units: 5000         # używane tylko gdy sizing_mode: fixed_units
+  equity_override: 30000      # stała baza $30k zamiast paper $4.3M IBKR
+                              # max_risk = $30,000 × 1% = $300/trade
+  max_units_per_trade: 200000 # hard cap — dodatkowe zabezpieczenie
+  max_open_positions_total: 5   # 1 per symbol × 5 aktywnych symboli (zmiana 2026-03-04)
+  max_open_positions_per_symbol: 1
+  daily_loss_limit_pct: 2.0
+  monthly_dd_stop_pct: 15.0
+  kill_switch_dd_pct: 10.0
+ibkr:
+  host: "127.0.0.1"
+  port: 4002
+  client_id: 7
+  account: ""
+  readonly: true
+  allow_live_orders: false
+  historical_days: 365
+  default_units_fx: 5000
+backtest:
+  initial_balance: 10000
+  intrabar_policy: "worst_case"
+logging:
+  log_dir: "logs"
+  level: "INFO"

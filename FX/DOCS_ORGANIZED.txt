@@ -1,0 +1,62 @@
+========================================
+DOKUMENTACJA UPORZĄDKOWANA - 2026-02-19
+========================================
+✅ ZAKOŃCZONO ORGANIZACJĘ 69 PLIKÓW .MD
+Główny katalog:
+  - README.md (tylko ten jeden plik)
+Dokumentacja przeniesiona do docs/:
+📁 docs/
+  │
+  ├── 📄 INDEX.md (główny indeks z linkami)
+  │
+  ├── 📂 validation/ (20 plików)
+  │   ├── 📄 README.md
+  │   ├── PROOF_V2_* (4 pliki - finalna walidacja)
+  │   ├── FULL_SYSTEM_* (rewalidacja systemu)
+  │   ├── FINAL_PROOF_* (executive summaries)
+  │   └── ENGINE_*, AUDIT_*, DETERMINISM_* (audyty)
+  │
+  ├── 📂 integration/ (7 plików)
+  │   ├── 📄 README.md
+  │   ├── INTEGRATION_COMPLETE.md
+  │   └── EURUSD_2024_* (data rebuild docs)
+  │
+  ├── 📂 guides/ (7 plików)
+  │   ├── 📄 README.md
+  │   ├── QUICK_START.md
+  │   ├── TREND_FOLLOWING_V1_* (strategy guides)
+  │   ├── H1_* (H1 timeframe guides)
+  │   └── IMPLEMENTATION_REPORT.md
+  │
+  └── 📂 archive/ (34 pliki)
+      ├── 📄 README.md
+      └── Historyczne raporty (grid search, experiments, etc.)
+========================================
+KLUCZOWE DOKUMENTY
+========================================
+Dla nowych użytkowników:
+  → docs/INDEX.md (zacznij tutaj)
+  → README_IBKR_GATEWAY.md (setup)
+  → docs/guides/QUICK_START.md
+Dla walidacji:
+  → docs/validation/PROOF_V2_FINAL.md (GO/NO-GO)
+  → docs/validation/FULL_SYSTEM_AUDIT_REPORT.md
+Dla implementacji:
+  → docs/guides/TREND_FOLLOWING_V1_IMPLEMENTATION_GUIDE.md
+========================================
+STATYSTYKI
+========================================
+Zorganizowanych plików .md: 69
+  - Validation: 20
+  - Integration: 7
+  - Guides: 7
+  - Archive: 34
+W głównym katalogu pozostał: 1 (README.md)
+Katalog reports/: niezmieniony (PNG, CSV)
+========================================
+DOSTĘP
+========================================
+Główny indeks: docs/INDEX.md
+README dla kategorii: docs/*/README.md
+Każdy folder ma własny README z opisem zawartości.
+========================================

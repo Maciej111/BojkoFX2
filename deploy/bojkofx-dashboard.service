@@ -1,0 +1,19 @@
+[Unit]
+Description=BojkoFx/BojkoIDX Unified Dashboard API (monorepo)
+After=network.target
+
+[Service]
+Type=simple
+User=macie
+WorkingDirectory=/home/macie/bojkofx/app
+EnvironmentFile=/home/macie/bojkofx/config/ibkr.env
+Environment=FX_BASE_DIR=/home/macie/bojkofx/app/FX
+Environment=US100_BASE_DIR=/home/macie/bojkoidx/app
+ExecStart=/home/macie/bojkofx/venv/bin/python dashboard/app.py
+Restart=always
+RestartSec=10s
+StandardOutput=append:/home/macie/bojkofx/logs/dashboard.log
+StandardError=append:/home/macie/bojkofx/logs/dashboard.log
+
+[Install]
+WantedBy=multi-user.target

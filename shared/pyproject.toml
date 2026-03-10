@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "bojkofx-shared"
+version = "0.1.0"
+description = "Shared core library for BojkoFX and BojkoIDX trading bots"
+requires-python = ">=3.10"
+dependencies = [
+    "ib-insync",
+    "pandas",
+    "numpy",
+    "pyyaml",
+    "flask",
+    "flask-cors",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bojkofx_shared*"]
+
+# Install in dev mode from each project:
+#   pip install -e ../../shared

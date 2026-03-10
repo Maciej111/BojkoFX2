@@ -1,0 +1,26 @@
+[Unit]
+Description=BojkoFx Trading Bot (monorepo)
+After=ibgateway.service network.target
+Requires=ibgateway.service
+
+[Service]
+Type=simple
+User=macie
+Group=macie
+WorkingDirectory=/home/macie/bojkofx/app/FX
+EnvironmentFile=/home/macie/bojkofx/config/ibkr.env
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/home/macie/bojkofx/start-bot.sh
+ExecStartPre=/bin/sleep 30
+ExecStart=/home/macie/bojkofx/venv/bin/python -m src.runners.run_paper_ibkr_gateway \
+    --symbol EURUSD,USDJPY,USDCHF,AUDJPY,CADJPY \
+    --allow_live_orders
+Restart=always
+RestartSec=60s
+TimeoutStartSec=120
+TimeoutStopSec=30
+StandardOutput=append:/home/macie/bojkofx/logs/bojkofx.log
+StandardError=append:/home/macie/bojkofx/logs/bojkofx.log
+
+[Install]
+WantedBy=multi-user.target
