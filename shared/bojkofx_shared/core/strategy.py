@@ -38,7 +38,8 @@ class TrendFollowingStrategy:
         self,
         ltf_bars: pd.DataFrame,  # H1 bars with DatetimeIndex
         htf_bars: pd.DataFrame,  # H4 bars with DatetimeIndex
-        current_bar_idx: int
+        current_bar_idx: int,
+        symbol: str = "UNKNOWN",  # FIX BUG-15: caller should pass real symbol
     ) -> List[OrderIntent]:
         """
         Process new bar and generate order intents
@@ -87,7 +88,7 @@ class TrendFollowingStrategy:
             # ── Idempotency: skip if identical intent already in DB ────────────
             if self._store and _STORE_AVAILABLE:
                 _intent_id = make_intent_id(
-                    "UNKNOWN",   # symbol filled by runner
+                    symbol,   # FIX BUG-15: use real symbol, not "UNKNOWN"
                     side.value, bos_level, bos_bar_ts
                 )
                 existing = self._store.get_order_by_intent_id(_intent_id)
@@ -114,7 +115,7 @@ class TrendFollowingStrategy:
             intent = OrderIntent(
                 signal_id=signal_id,
                 timestamp=current_time,
-                symbol="UNKNOWN",  # Will be set by runner
+                symbol=symbol,  # FIX BUG-15: use real symbol passed by caller
                 side=side,
                 entry_type=OrderType.LIMIT,
                 entry_price=entry_price,
@@ -142,7 +143,7 @@ class TrendFollowingStrategy:
                 ph = pivots['highs'][-1] if pivots['highs'] else None
                 pl = pivots['lows'][-1]  if pivots['lows']  else None
                 state = StrategyState(
-                    symbol=intent.symbol,   # will be "UNKNOWN" until runner patches it
+                    symbol=symbol,   # FIX BUG-15: real symbol, no post-hoc patch needed
                     last_processed_bar_ts=bos_bar_ts,
                     last_pivot_high=PivotInfo(
                         price=float(ph[1]),

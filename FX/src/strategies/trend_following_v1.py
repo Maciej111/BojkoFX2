@@ -57,11 +57,22 @@ def calculate_atr(df, period=14):
 
 def check_bos(df, current_idx, pivot_highs, pivot_lows, ph_levels, pl_levels, require_close_break):
     """
-    Legacy wrapper — delegates to the shared check_bos_signal().
+    DEPRECATED — FIX BUG-06: This wrapper uses get_last_confirmed_pivot() which is based on
+    detect_pivots_confirmed() (lookahead 1–2 bars). It is NOT used in the main backtest loop
+    (which directly uses ltf_ph_pre[i] / ltf_pl_pre[i] from precompute_pivots).
 
-    Kept for backward compatibility with code that calls this function directly.
-    New code should use src.signals.trend_following_signals.check_bos_signal().
+    If you see this warning, someone is calling the legacy wrapper — switch to:
+        from src.signals.trend_following_signals import check_bos_signal
+        bos_side, bos_level = check_bos_signal(close, ph_pre[i], pl_pre[i])
     """
+    import warnings
+    warnings.warn(
+        "check_bos() is a deprecated lookahead wrapper. "
+        "Use check_bos_signal() with precompute_pivots() no-lookahead series instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     current_close = df['close_bid'].iloc[current_idx]
 
     # Resolve last pivot levels from the pre-computed series
@@ -186,8 +197,11 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
 
     # ── Pivot detection ───────────────────────────────────────────────────────
     # Detect pivots on LTF (H1)
+    # FIX BUG-04/BUG-11: confirmation_bars=ltf_lookback eliminates lookahead.
+    # Raw pivot at bar p uses window [p-lb, p+lb]. With conf=lb it is confirmed
+    # at bar p+lb exactly when the right wing is complete — zero future bars used.
     ltf_pivot_highs, ltf_pivot_lows, ltf_ph_levels, ltf_pl_levels = detect_pivots_confirmed(
-        ltf_df, lookback=ltf_lookback, confirmation_bars=confirmation_bars
+        ltf_df, lookback=ltf_lookback, confirmation_bars=ltf_lookback
     )
 
     # LTF pivots as numpy arrays for use by shared check_bos_signal via precompute_pivots
@@ -198,8 +212,9 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
     )
 
     # Detect pivots on HTF (H4) for HTF bias calculation
+    # FIX BUG-04: confirmation_bars=htf_lookback — same no-lookahead logic as above.
     htf_pivot_highs, htf_pivot_lows, htf_ph_levels, htf_pl_levels = detect_pivots_confirmed(
-        htf_df, lookback=htf_lookback, confirmation_bars=confirmation_bars
+        htf_df, lookback=htf_lookback, confirmation_bars=htf_lookback
     )
 
     # ── Main backtest loop ────────────────────────────────────────────────────
@@ -251,7 +266,15 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
                     elif exit_price > current_bar['high_bid']:
                         exit_price = current_bar['high_bid']  # Clamp to high
 
-                    # Recalculate with clamped price
+                    # FIX BUG-13: warn when clamping fires — hides model price violations
+                    if exit_price != original_exit_price:
+                        import logging as _logging
+                        _logging.getLogger(__name__).warning(
+                            "[CLAMP_LONG] exit_price clamped %.5f → %.5f at %s "
+                            "(bar BID range [%.5f, %.5f])",
+                            original_exit_price, exit_price, current_time,
+                            current_bar['low_bid'], current_bar['high_bid'],
+                        )
                     realized_dist = exit_price - current_position['entry']
                     R_calc = realized_dist / risk_dist if risk_dist > 0 else 0
                     exit_pnl = (exit_price - current_position['entry']) * 100000
@@ -334,6 +357,16 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
                     elif exit_price > current_bar['high_ask']:
                         exit_price = current_bar['high_ask']  # Clamp to high
 
+                    # FIX BUG-13: warn when clamping fires — hides model price violations
+                    if exit_price != original_exit_price:
+                        import logging as _logging
+                        _logging.getLogger(__name__).warning(
+                            "[CLAMP_SHORT] exit_price clamped %.5f → %.5f at %s "
+                            "(bar ASK range [%.5f, %.5f])",
+                            original_exit_price, exit_price, current_time,
+                            current_bar['low_ask'], current_bar['high_ask'],
+                        )
+
                     # Recalculate with clamped price
                     realized_dist = current_position['entry'] - exit_price
                     R_calc = realized_dist / risk_dist if risk_dist > 0 else 0
@@ -392,14 +425,15 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
                 atr   = current_bar['atr']
                 entry = setup.entry_price
 
+                # FIX BUG-11: use no-lookahead precomputed pivot visible at fill bar i.
+                # ltf_pl_pre[i] / ltf_ph_pre[i] from precompute_pivots are zero-lookahead
+                # by construction (pivot at p confirmed at p+lookback, visible from p+lookback+1).
+                # Replaces get_last_confirmed_pivot(detect_pivots_confirmed) which had
+                # 1-2 bar lookahead from the raw pivot window i+lookback.
                 if setup.direction == 'LONG':
-                    sl_pivot_time, sl_pivot_level = get_last_confirmed_pivot(
-                        ltf_df, ltf_pivot_lows, ltf_pl_levels, current_time
-                    )
+                    sl_pivot_level = ltf_pl_pre[i]   # last confirmed PL visible at fill bar
                 else:
-                    sl_pivot_time, sl_pivot_level = get_last_confirmed_pivot(
-                        ltf_df, ltf_pivot_highs, ltf_ph_levels, current_time
-                    )
+                    sl_pivot_level = ltf_ph_pre[i]   # last confirmed PH visible at fill bar
 
                 sl = compute_sl_at_fill(
                     side=setup.direction,
@@ -531,10 +565,16 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
         total_losses = abs(losses['pnl'].sum()) if len(losses) > 0 else 1
         profit_factor = total_wins / total_losses if total_losses > 0 else 0
 
-        # Calculate max drawdown
+        # FIX BUG-12: DD computed from R-scaled compound equity curve.
+        # Old curve used pnl built on hardcoded 100_000 units — wrong for risk_first sizing
+        # where each trade risks current_equity × risk_fraction (compounding).
+        # New: equity[t+1] = equity[t] × (1 + R[t] × risk_fraction), matching live model.
+        _risk_fraction = float(params_dict.get('risk_pct', 0.0025))
         equity_curve = [initial_balance]
-        for pnl in trades_df['pnl']:
-            equity_curve.append(equity_curve[-1] + pnl)
+        _eq = float(initial_balance)
+        for r_val in trades_df['R']:
+            _eq = _eq * (1.0 + r_val * _risk_fraction)
+            equity_curve.append(_eq)
 
         peak = equity_curve[0]
         max_dd = 0

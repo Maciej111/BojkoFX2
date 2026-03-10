@@ -344,7 +344,14 @@ class IBKRExecutionEngine:
             Startuje od default_units (5 000), scale-down jeśli
             implied_risk > equity × risk_fraction.
         """
-        entry = intent.entry_price or self._account_equity
+        entry = intent.entry_price
+        if not entry or entry <= 0:
+            log.error(
+                "[SIZING] %s entry_price is zero or None — blocking order "
+                "(falling back to account equity would corrupt sizing)",
+                intent.symbol,
+            )
+            return 0
         sl    = intent.sl_price
         stop_dist = abs(entry - sl)
         if stop_dist == 0:
@@ -422,8 +429,9 @@ class IBKRExecutionEngine:
             return False
 
         tick  = _TICK.get(intent.symbol, _DEFAULT_TICK)
-        # Use bid for LONG (conservative), ask for SHORT
-        price = current_bid if intent.side == Side.LONG else current_ask
+        # FIX BUG-08: use ASK for LONG (entry was executed on ask) and BID for SHORT.
+        # Previously used BID for LONG, creating ~1 spread asymmetry vs fill_price.
+        price = current_ask if intent.side == Side.LONG else current_bid
 
         new_trail_sl = record.trail_sl
 
@@ -547,6 +555,43 @@ class IBKRExecutionEngine:
         if units <= 0:
             print(f"[ERROR] Zero units for {intent.symbol}")
             return None
+
+        # 4.5) FIX BUG-14: Pre-save intent to DB BEFORE IBKR placement.
+        # If bot crashes between bracket placement and the step-7 DB write, process_bar()
+        # on restart finds this record via get_order_by_intent_id() and skips re-signalling.
+        # Step 7 updates the same row (via ON CONFLICT intent_id DO UPDATE) with the real
+        # IBKR parent_id and status=PENDING — no duplicate row is created.
+        if self.store is not None:
+            try:
+                from ..core.state_store import DBOrderRecord, OrderStatus, make_intent_id
+                _bos_meta = intent.metadata or {}
+                _pre_intent_id = make_intent_id(
+                    intent.symbol,
+                    intent.side.value,
+                    float(_bos_meta.get("bos_level", intent.entry_price or 0)),
+                    str(_bos_meta.get("bos_bar_ts", "")),
+                )
+                self.store.upsert_order(DBOrderRecord(
+                    intent_id=_pre_intent_id,
+                    symbol=intent.symbol,
+                    intent_json={
+                        "signal_id": intent.signal_id,
+                        "side": intent.side.value,
+                        "entry_price": float(intent.entry_price or 0),
+                        "sl_price": float(intent.sl_price),
+                        "tp_price": float(intent.tp_price),
+                        "ttl_bars": intent.ttl_bars,
+                        "entry_type": intent.entry_type.value,
+                        "metadata": {k: float(v) if hasattr(v, "item") else v
+                                     for k, v in _bos_meta.items()},
+                    },
+                    status=OrderStatus.SENT,
+                    parent_id=0,  # not yet placed — updated to real IBKR id at step 7
+                ))
+                log.debug("[PRE_SAVE] %s intent_id=%s status=SENT parent_id=0",
+                          intent.symbol, _pre_intent_id)
+            except Exception as _e:
+                log.warning("execute_intent: pre-save DB write failed: %s", _e)
 
         # 5) Place bracket
         try:
@@ -829,8 +874,8 @@ class IBKRExecutionEngine:
                 # ── Restore trailing stop state from DB ───────────────────────
                 if self.store is not None:
                     trail_state = self.store.load_trail_state(parent_id)
+                    sym_trail_cfg = self.trail_config_by_symbol.get(symbol)
                     if trail_state:
-                        sym_trail_cfg = self.trail_config_by_symbol.get(symbol)
                         if sym_trail_cfg and sym_trail_cfg.get("enabled", True):
                             record.trail_cfg = {
                                 "ts_r":   float(sym_trail_cfg.get("ts_r", 1.5)),
@@ -850,6 +895,19 @@ class IBKRExecutionEngine:
                                 f"activated={record.trail_activated} "
                                 f"sl={record.trail_sl:.5f}"
                             )
+                    elif sym_trail_cfg and sym_trail_cfg.get("enabled", True):
+                        # FIX BUG-16: trail config exists but no DB record — SL will be
+                        # at original intent SL, not the activated/moved level. Log warning
+                        # so operator knows a protected trade has lost its trail protection.
+                        log.warning(
+                            "[RESTORE_TS] %s parent_id=%d has trail config but NO trail state in DB. "
+                            "SL will revert to original %.5f. If trail was activated, protection is LOST!",
+                            symbol, parent_id, record.trail_sl or 0.0,
+                        )
+                        print(
+                            f"[WARN][RESTORE_TS] {symbol} parent_id={parent_id}: "
+                            f"trail state missing from DB — SL at original level, trail protection may be lost!"
+                        )
 
                 restored += 1
 
@@ -917,6 +975,23 @@ class IBKRExecutionEngine:
         self.ib.sleep(0.5)
         sl_id = sl_trade.order.orderId
 
+        # FIX BUG-10: if SL was not acknowledged, cancel parent+TP to avoid zombie orders.
+        # parent+TP have transmit=False so they are held on IBKR but not yet live.
+        if not sl_id:
+            log.error(
+                "[BRACKET] SL not acknowledged for %s — cancelling parent=%d tp=%d to avoid zombie orders",
+                intent.symbol, parent_id, tp_id,
+            )
+            try:
+                self.ib.cancelOrder(parent_trade.order)
+                self.ib.cancelOrder(tp_trade.order)
+            except Exception as _ce:
+                log.error("[BRACKET] Cancel of zombie orders failed: %s", _ce)
+            raise RuntimeError(
+                f"Bracket placement incomplete for {intent.symbol}: SL order not acknowledged. "
+                f"parent={parent_id} tp={tp_id} have been cancelled."
+            )
+
         return parent_id, tp_id, sl_id
 
     def _place_market_bracket(
@@ -959,6 +1034,21 @@ class IBKRExecutionEngine:
         sl_trade = self.ib.placeOrder(contract, sl_order)
         self.ib.sleep(0.5)
         sl_id = sl_trade.order.orderId
+
+        # FIX BUG-10: same rollback guard for market bracket
+        if not sl_id:
+            log.error(
+                "[BRACKET] SL not acknowledged for %s (market) — cancelling parent=%d tp=%d",
+                intent.symbol, parent_id, tp_id,
+            )
+            try:
+                self.ib.cancelOrder(parent_trade.order)
+                self.ib.cancelOrder(tp_trade.order)
+            except Exception as _ce:
+                log.error("[BRACKET] Cancel of zombie orders failed: %s", _ce)
+            raise RuntimeError(
+                f"Market bracket placement incomplete for {intent.symbol}: SL order not acknowledged."
+            )
 
         return parent_id, tp_id, sl_id
 
@@ -1068,13 +1158,15 @@ class IBKRExecutionEngine:
                     exit_trade  = None
                     exit_reason = None
 
-                    if tp_trade and tp_trade.orderStatus.status == "Filled":
-                        exit_trade  = tp_trade
-                        exit_reason = ExitReason.TP
-                    elif sl_trade and sl_trade.orderStatus.status == "Filled":
+                    # FIX BUG-09: check SL before TP — worst-case principle matching backtest.
+                    # If both are filled in the same poll cycle, backtest chooses SL (pessimistic).
+                    if sl_trade and sl_trade.orderStatus.status == "Filled":
                         exit_trade  = sl_trade
                         # Distinguish: regular SL vs trailing-stop hit
                         exit_reason = ExitReason.TS if record.trail_activated else ExitReason.SL
+                    elif tp_trade and tp_trade.orderStatus.status == "Filled":
+                        exit_trade  = tp_trade
+                        exit_reason = ExitReason.TP
 
                     if exit_trade:
                         record.exit_time  = datetime.now(timezone.utc).replace(tzinfo=None)

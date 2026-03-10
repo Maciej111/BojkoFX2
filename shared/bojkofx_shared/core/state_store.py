@@ -556,7 +556,25 @@ class SQLiteStateStore:
             [OrderStatus.PENDING, OrderStatus.SENT, OrderStatus.CREATED]
         )
         for rec in db_pending:
-            if rec.parent_id > 0 and rec.parent_id not in ibkr_parent_ids:
+            if rec.parent_id == 0:
+                # FIX BUG-14: pre-saved intent never reached IBKR (crashed before placement).
+                # parent_id=0 means _place_limit_bracket never ran — expire by intent_id.
+                with self._tx() as c:
+                    c.execute(
+                        "UPDATE orders SET status=?, updated_at=? WHERE intent_id=?",
+                        (OrderStatus.EXPIRED, _utc_now(), rec.intent_id),
+                    )
+                self.append_event("ORDER_EXPIRED", {
+                    "source": "startup_merge",
+                    "parent_id": 0,
+                    "symbol": rec.symbol,
+                    "intent_id": rec.intent_id,
+                    "reason": "never_placed",
+                })
+                counts["expired"] += 1
+                log.info("merge_ibkr: intent_id=%s %s → EXPIRED (never placed on IBKR)",
+                         rec.intent_id, rec.symbol)
+            elif rec.parent_id > 0 and rec.parent_id not in ibkr_parent_ids:
                 self.update_order_status(rec.parent_id, OrderStatus.EXPIRED)
                 self.append_event("ORDER_EXPIRED", {
                     "source": "startup_merge",

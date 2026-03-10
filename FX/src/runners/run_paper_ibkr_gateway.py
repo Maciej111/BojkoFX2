@@ -41,6 +41,12 @@ from src.core.state_store import SQLiteStateStore, OrderStatus, get_default_db_p
 from src.data.ibkr_marketdata import IBKRMarketData
 from src.execution.ibkr_exec import IBKRExecutionEngine
 from src.reporting.logger import TradingLogger
+# Shared signal functions — identical to what backtests use (BUG-01, BUG-02)
+from src.signals.trend_following_signals import (
+    compute_atr_series as _compute_atr_series,
+    compute_adx_series as _compute_adx_series,
+    normalize_ohlc as _normalize_ohlc,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -423,7 +429,10 @@ Examples:
                     _pct_min = sc.atr_pct_filter_min if sc.atr_pct_filter_min is not None else 0.0
                     _pct_max = sc.atr_pct_filter_max if sc.atr_pct_filter_max is not None else 100.0
                     try:
-                        _atr_s = (h1['high_bid'] - h1['low_bid']).rolling(14).mean()
+                        # FIX BUG-01: use Wilder ATR (True Range) matching backtest.
+                        # Old: (high-low).rolling(14).mean() — range only, ignores gaps.
+                        # New: compute_atr_series: max(H-L, |H-prevC|, |L-prevC|) EWM Wilder.
+                        _atr_s = _compute_atr_series(_normalize_ohlc(h1, price_type='bid'), period=14)
                         _cur_atr = _atr_s.iloc[-1]
                         _window = _atr_s.dropna().iloc[-100:]
                         if len(_window) >= 20 and not pd.isna(_cur_atr):
@@ -453,40 +462,16 @@ Examples:
                             "low_bid":   "min",   "close_bid": "last",
                         }).dropna(how="all")
                         # Odrzuć ostatni bar H4 jeśli nie jest zamknięty
-                        # (ostatni H1 bar mógł trafić w środek H4 baru)
                         _now_h4 = pd.Timestamp(bar_ts).floor("4h")
                         _h4 = _h4[_h4.index < _now_h4]
 
                         if len(_h4) >= 20:
-                            # ADX(14) Wildera na H4
-                            _hi = _h4["high_bid"]
-                            _lo = _h4["low_bid"]
-                            _cl = _h4["close_bid"]
-                            _prev_cl = _cl.shift(1)
-                            _tr = pd.concat([
-                                _hi - _lo,
-                                (_hi - _prev_cl).abs(),
-                                (_lo - _prev_cl).abs(),
-                            ], axis=1).max(axis=1)
-                            _atr14 = _tr.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
-                            _up   = _hi - _hi.shift(1)
-                            _dn   = _lo.shift(1) - _lo
-                            _pdm  = pd.Series(
-                                __import__("numpy").where((_up > _dn) & (_up > 0), _up, 0.0),
-                                index=_h4.index)
-                            _mdm  = pd.Series(
-                                __import__("numpy").where((_dn > _up) & (_dn > 0), _dn, 0.0),
-                                index=_h4.index)
-                            _alpha = 1/14
-                            _pdi = 100 * _pdm.ewm(alpha=_alpha, min_periods=14,
-                                                   adjust=False).mean() / _atr14
-                            _mdi = 100 * _mdm.ewm(alpha=_alpha, min_periods=14,
-                                                   adjust=False).mean() / _atr14
-                            _dx  = (100 * (_pdi - _mdi).abs() /
-                                    (_pdi + _mdi).replace(0, float("nan"))).fillna(0)
-                            _adx_h4 = _dx.ewm(alpha=_alpha, min_periods=14,
-                                               adjust=False).mean()
-                            _adx_val = float(_adx_h4.iloc[-1])
+                            # FIX BUG-02: use shared compute_adx_series — identical to backtest.
+                            # Old code was inline 50-line Wilder ADX that could drift from shared fn.
+                            _adx_s = _compute_adx_series(
+                                _normalize_ohlc(_h4, price_type='bid'), period=14
+                            )
+                            _adx_val = float(_adx_s.iloc[-1])
 
                             if pd.isna(_adx_val) or _adx_val < sc.adx_h4_gate:
                                 log.info("%s H4 ADX gate: ADX=%.1f < thr=%.0f — skip",
@@ -506,7 +491,7 @@ Examples:
 
                 # ── Strategy ──────────────────────────────────────────────────
                 try:
-                    intents = strategy.process_bar(h1, htf, len(h1) - 1)
+                    intents = strategy.process_bar(h1, htf, len(h1) - 1, symbol=sym)
                 except Exception as exc:
                     log.error("strategy.process_bar error for %s: %s", sym, exc)
                     continue
@@ -539,16 +524,6 @@ Examples:
                                 "[RR_OVERRIDE] %s rr=%.1f tp: %.5f -> %.5f",
                                 sym, _rr, _old_tp, intent.tp_price,
                             )
-
-                    # ── Patch strategy state symbol in DB (was "UNKNOWN") ─────
-                    try:
-                        _db_state = store.load_strategy_state("UNKNOWN")
-                        if _db_state is not None:
-                            from src.core.state_store import StrategyState
-                            _db_state.symbol = sym
-                            store.save_strategy_state(_db_state)
-                    except Exception:
-                        pass
 
                     logger.log_intent(intent, notes=f"bar_close={bar_ts}")
 
