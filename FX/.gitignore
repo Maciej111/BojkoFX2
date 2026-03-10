@@ -84,8 +84,8 @@ reports/*.csv
 /nul
 
 # Root-level loose copies of scripts/configs (should live in src/ or scripts/)
-ibkr_marketdata.py
-run_paper_ibkr_gateway.py
+/ibkr_marketdata.py
+/run_paper_ibkr_gateway.py
 enableapi.sh
 ibc-config.ini
 ibc-config-current.ini
