@@ -54,6 +54,11 @@ FX/backtests/outputs/*.json
 US100/backtests/outputs/*.csv
 US100/backtests/outputs/*.json
 
+# ── Duże pliki danych (bars CSV) ─────────────────────────────────────────────
+US100/data/bars_idx/*.csv
+US100/data/bars_idx/*.feather
+US100/data/bars_idx/*.parquet
+
 # ── Logs ────────────────────────────────────────────────────────────────────
 logs/*.csv
 logs/*.log
