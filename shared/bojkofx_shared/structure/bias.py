@@ -43,10 +43,13 @@ def determine_htf_bias(pivot_sequence, last_close):
     # 2. Higher Lows: każdy kolejny low wyższy od poprzedniego
     lows_ascending = all(lows[i][1] > lows[i+1][1] for i in range(min(2, len(lows)-1)))
 
-    # 3. Ostatni high wybity?
-    last_high_broken = last_close > highs[0][1] if highs else False
-
-    if (highs_ascending and lows_ascending) or last_high_broken:
+    # FIX BUG-05: removed last_high_broken / last_low_broken conditions.
+    # Those conditions created a tautology: close > last_pivot_high is exactly the
+    # BOS LONG condition, so every LTF BOS automatically granted itself a BULL bias
+    # on the same bar. This caused false biases in ranging markets and a live/backtest
+    # mismatch (live used an in-progress H4 bar via iloc[-1]).
+    # BULL now requires STRICT structural confirmation: HH + HL (ascending sequence).
+    if highs_ascending and lows_ascending:
         return 'BULL'
 
     # Check dla BEAR bias
@@ -56,10 +59,8 @@ def determine_htf_bias(pivot_sequence, last_close):
     # 2. Lower Highs: każdy kolejny high niższy od poprzedniego
     highs_descending = all(highs[i][1] < highs[i+1][1] for i in range(min(2, len(highs)-1)))
 
-    # 3. Ostatni low wybity?
-    last_low_broken = last_close < lows[0][1] if lows else False
-
-    if (lows_descending and highs_descending) or last_low_broken:
+    # BEAR requires strict structural confirmation: LL + LH (descending sequence).
+    if lows_descending and highs_descending:
         return 'BEAR'
 
     # Default

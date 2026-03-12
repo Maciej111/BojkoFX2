@@ -1,6 +1,6 @@
 # Index Backtest Report: USATECHIDXUSD
 
-**Period:** 2024-01-01 → 2024-12-30
+**Period:** 2021-01-01 → 2026-03-07
 **LTF:** 1h  |  **HTF:** 4h
 **Strategy:** BOS + Pullback (trend_following_v1)
 
@@ -16,40 +16,50 @@
 | pullback_max_bars | 20 |
 | sl_anchor | last_pivot |
 | sl_buffer_atr_mult | 0.5 |
-| risk_reward | 2.0 |
+| risk_reward | 2.5 |
 | use_session_filter | True |
 | session_start_hour_utc | 13 |
 | session_end_hour_utc | 20 |
+| use_bos_momentum_filter | True |
+| bos_min_range_atr_mult | 1.2 |
+| bos_min_body_to_range_ratio | 0.6 |
+| use_flag_contraction_setup | False |
+| flag_impulse_lookback_bars | 8 |
+| flag_contraction_bars | 5 |
+| flag_min_impulse_atr_mult | 2.5 |
+| flag_max_contraction_atr_mult | 1.2 |
+| flag_breakout_buffer_atr_mult | 0.1 |
+| flag_sl_buffer_atr_mult | 0.3 |
 
 ## Results Summary
 
 | Metric | Value |
 |--------|-------|
-| Total trades | 59 |
-| Win rate | 35.6% |
-| Expectancy (R) | 0.118 |
-| Profit factor | 0.98 |
-| Max R-drawdown | 18.18R |
-| Max losing streak | 14 |
-| Total setups detected | 111 |
-| Missed rate | 45.9% |
-| TP exits | 20 |
-| SL exits | 39 |
+| Total trades | 6 |
+| Win rate | 33.3% |
+| Expectancy (R) | 0.167 |
+| Profit factor | 1.25 |
+| Max R-drawdown | 3.00R |
+| Max losing streak | 3 |
+| Total setups detected | 8 |
+| Missed rate | 25.0% |
+| TP exits | 2 |
+| SL exits | 4 |
 
 ## Trade Direction Breakdown
 
 | Direction | Trades | Win Rate | Avg R |
 |-----------|--------|----------|-------|
-| LONG | 36 | 38.9% | 0.271 |
-| SHORT | 23 | 30.4% | -0.120 |
+| LONG | 2 | 50.0% | 0.750 |
+| SHORT | 4 | 25.0% | -0.125 |
 
 ## R Distribution
 
 | Bucket | Count |
 |--------|-------|
-| < -1R | 2 |
-| -1R to 0 | 36 |
+| < -1R | 0 |
+| -1R to 0 | 4 |
 | 0 to 1R | 0 |
-| 1R to 2R | 1 |
-| 2R to 3R | 19 |
-| >= 3R | 1 |
+| 1R to 2R | 0 |
+| 2R to 3R | 2 |
+| >= 3R | 0 |

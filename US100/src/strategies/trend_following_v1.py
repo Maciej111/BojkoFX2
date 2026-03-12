@@ -9,54 +9,42 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from src.structure.pivots import detect_pivots_confirmed, get_last_confirmed_pivot, get_pivot_sequence
+from src.structure.pivots import detect_pivots_confirmed, get_pivot_sequence, precompute_pivots
 from src.structure.bias import get_htf_bias_at_bar
 from src.structure.flags import detect_flag_contraction
 from src.backtest.setup_tracker import SetupTracker
+# FIX BUG-US-02: use shared Wilder EWM ATR (replaces local rolling-mean version)
+from src.indicators.atr import calculate_atr
+from src.strategies.regime_filter import precompute_regime, is_trending_regime
 
 
-def calculate_atr(df, period=14):
-    """Calculate ATR."""
-    high = df['high_bid']
-    low = df['low_bid']
-    close = df['close_bid']
+def check_bos(df, current_idx, last_ph_price, last_pl_price, require_close_break):
+    """
+    Check if BOS occurred at the current bar.
 
-    tr1 = high - low
-    tr2 = abs(high - close.shift())
-    tr3 = abs(low - close.shift())
-
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=period).mean()
-
-    return atr
-
-
-def check_bos(df, current_idx, pivot_highs, pivot_lows, ph_levels, pl_levels, require_close_break):
-    """Check if BOS occurred at current bar."""
-
+    Uses no-lookahead precomputed pivot scalars (from precompute_pivots):
+        last_ph_price  — most recent confirmed pivot high visible before this bar
+        last_pl_price  — most recent confirmed pivot low  visible before this bar
+    """
     current_close = df['close_bid'].iloc[current_idx]
 
-    # Bull BOS: close above last pivot high
-    last_ph_time, last_ph_level = get_last_confirmed_pivot(df, pivot_highs, ph_levels, df.index[current_idx])
-
-    if last_ph_level is not None:
+    # Bull BOS: close breaks above last confirmed pivot high
+    if last_ph_price is not None:
         if require_close_break:
-            if current_close > last_ph_level:
-                return True, 'LONG', last_ph_level
+            if current_close > last_ph_price:
+                return True, 'LONG', last_ph_price
         else:
-            if df['high_bid'].iloc[current_idx] > last_ph_level:
-                return True, 'LONG', last_ph_level
+            if df['high_bid'].iloc[current_idx] > last_ph_price:
+                return True, 'LONG', last_ph_price
 
-    # Bear BOS: close below last pivot low
-    last_pl_time, last_pl_level = get_last_confirmed_pivot(df, pivot_lows, pl_levels, df.index[current_idx])
-
-    if last_pl_level is not None:
+    # Bear BOS: close breaks below last confirmed pivot low
+    if last_pl_price is not None:
         if require_close_break:
-            if current_close < last_pl_level:
-                return True, 'SHORT', last_pl_level
+            if current_close < last_pl_price:
+                return True, 'SHORT', last_pl_price
         else:
-            if df['low_bid'].iloc[current_idx] < last_pl_level:
-                return True, 'SHORT', last_pl_level
+            if df['low_bid'].iloc[current_idx] < last_pl_price:
+                return True, 'SHORT', last_pl_price
 
     return False, None, None
 
@@ -143,15 +131,22 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
 
     ltf_df['atr'] = calculate_atr(ltf_df, period=14)
 
-    # Detect pivots on LTF (H1)
-    ltf_pivot_highs, ltf_pivot_lows, ltf_ph_levels, ltf_pl_levels = detect_pivots_confirmed(
-        ltf_df, lookback=ltf_lookback, confirmation_bars=confirmation_bars
+    # FIX BUG-US-01: replace full-history detect_pivots_confirmed (lookahead) with
+    # O(n) precompute_pivots — ph_prices[i]/pl_prices[i] are the last confirmed pivot
+    # visible BEFORE bar i (right wing = lookback bars, zero lookahead).
+    ltf_ph_prices, ltf_ph_idxs, ltf_pl_prices, ltf_pl_idxs = precompute_pivots(
+        ltf_df['high_bid'].values, ltf_df['low_bid'].values, lookback=ltf_lookback
     )
 
-    # Detect pivots on HTF (H4)
+    # HTF pivots: kept as Series for get_htf_bias_at_bar (series-based API).
+    # HTF 4h confirmation delay is 1×4h — acceptable; fix not critical here.
     htf_pivot_highs, htf_pivot_lows, htf_ph_levels, htf_pl_levels = detect_pivots_confirmed(
         htf_df, lookback=htf_lookback, confirmation_bars=confirmation_bars
     )
+
+    # Regime filter: precompute indicators once before the main loop (no-lookahead)
+    if params_dict.get('use_regime_filter', False):
+        params_dict['_regime_data'] = precompute_regime(htf_df, params_dict)
 
     # Initialize
     tracker = SetupTracker()
@@ -428,16 +423,16 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
                 else:
                     if setup.direction == 'LONG':
                         if sl_anchor == 'last_pivot':
-                            sl_time, sl_level = get_last_confirmed_pivot(
-                                ltf_df, ltf_pivot_lows, ltf_pl_levels, current_time)
+                            # FIX BUG-US-01: use precomputed no-lookahead pivot at fill bar
+                            sl_level = ltf_pl_prices[i]
                         else:  # pre_bos_pivot
                             sl_level = setup.bos_level
                         sl = (sl_level - sl_buffer_atr * atr) if sl_level else (entry - 2 * atr)
                         risk = entry - sl
                     else:  # SHORT
                         if sl_anchor == 'last_pivot':
-                            sl_time, sl_level = get_last_confirmed_pivot(
-                                ltf_df, ltf_pivot_highs, ltf_ph_levels, current_time)
+                            # FIX BUG-US-01: use precomputed no-lookahead pivot at fill bar
+                            sl_level = ltf_ph_prices[i]
                         else:
                             sl_level = setup.bos_level
                         sl = (sl_level + sl_buffer_atr * atr) if sl_level else (entry + 2 * atr)
@@ -491,6 +486,11 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
         if htf_bias == 'NEUTRAL':
             continue
 
+        # Regime filter: block signals when US100 is not in trending state
+        if params_dict.get('use_regime_filter', False):
+            if not is_trending_regime(ltf_df, htf_df, i, params_dict, htf_bias=htf_bias):
+                continue
+
         atr = current_bar['atr']
         # Guard: ATR must be valid for any setup creation
         if pd.isna(atr) or atr <= 0:
@@ -508,8 +508,9 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
         # PATH A: BOS (Break-of-Structure) — runs first, has priority.
         # If this path creates a setup, FLAG_CONTRACTION is skipped.
         # ==============================================================
+        # FIX BUG-US-01: pass no-lookahead scalar pivots for current bar
         bos_detected, bos_direction, bos_level = check_bos(
-            ltf_df, i, ltf_pivot_highs, ltf_pivot_lows, ltf_ph_levels, ltf_pl_levels,
+            ltf_df, i, ltf_ph_prices[i], ltf_pl_prices[i],
             require_close_break
         )
 
@@ -616,35 +617,40 @@ def run_trend_backtest(symbol, ltf_df, htf_df, params_dict, initial_balance=1000
         # R column already calculated correctly in trades
         # No need to recalculate
 
-        wins = trades_df[trades_df['pnl'] > 0]
-        losses = trades_df[trades_df['pnl'] <= 0]
+        # FIX BUG-US-03: use R column (correct) instead of pnl (hardcoded ×100000,
+        # meaningless for NAS100 CFD).  R is already calculated correctly above.
+        wins_r   = trades_df[trades_df['R'] > 0]
+        losses_r = trades_df[trades_df['R'] <= 0]
 
-        win_rate = len(wins) / len(trades_df) * 100 if len(trades_df) > 0 else 0
+        win_rate = len(wins_r) / len(trades_df) * 100 if len(trades_df) > 0 else 0
         expectancy_R = trades_df['R'].mean()
 
-        total_wins = wins['pnl'].sum() if len(wins) > 0 else 0
-        total_losses = abs(losses['pnl'].sum()) if len(losses) > 0 else 1
-        profit_factor = total_wins / total_losses if total_losses > 0 else 0
+        total_wins_r   = wins_r['R'].sum()   if len(wins_r)   > 0 else 0.0
+        total_losses_r = abs(losses_r['R'].sum()) if len(losses_r) > 0 else 1.0
+        profit_factor  = total_wins_r / total_losses_r if total_losses_r > 0 else 0.0
 
-        # Calculate max drawdown
-        equity_curve = [initial_balance]
-        for pnl in trades_df['pnl']:
-            equity_curve.append(equity_curve[-1] + pnl)
+        # R-compounded equity curve (0.5% risk per trade — instrument-agnostic)
+        risk_fraction = 0.005
+        equity = float(initial_balance)
+        equity_curve = [equity]
+        for r_val in trades_df['R']:
+            equity *= (1.0 + r_val * risk_fraction)
+            equity_curve.append(equity)
 
         peak = equity_curve[0]
-        max_dd = 0
+        max_dd = 0.0
         for val in equity_curve:
             if val > peak:
                 peak = val
-            dd = (peak - val) / peak * 100
+            dd = (peak - val) / peak * 100.0
             if dd > max_dd:
                 max_dd = dd
 
-        # Max losing streak
+        # Max losing streak (R-based)
         streak = 0
         max_streak = 0
-        for pnl in trades_df['pnl']:
-            if pnl <= 0:
+        for r_val in trades_df['R']:
+            if r_val <= 0:
                 streak += 1
                 max_streak = max(max_streak, streak)
             else:

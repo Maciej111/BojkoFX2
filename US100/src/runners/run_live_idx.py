@@ -383,7 +383,8 @@ def main():
             print(f"\n[BAR] {SYMBOL} 5m closed: {bar_ts}  (total bars: {cur_count})")
 
             # ── Session filter ────────────────────────────────────────────────
-            if not (session_start <= bar_hour < session_end):
+            # FIX BUG-US-04: use <= (inclusive end) to match backtest is_allowed_session()
+            if not (session_start <= bar_hour <= session_end):
                 log.debug("Skipped — %02d:00 UTC outside session %02d–%02d",
                           bar_hour, session_start, session_end)
                 print(f"  [SESSION] Skipped — {bar_hour:02d}:00 UTC outside "
@@ -405,7 +406,8 @@ def main():
 
             # ── Strategy signal ───────────────────────────────────────────────
             try:
-                intents = strategy.process_bar(ltf, htf, len(ltf) - 1)
+                # FIX BUG-US-05: pass symbol so state is stored under correct key
+                intents = strategy.process_bar(ltf, htf, len(ltf) - 1, symbol=SYMBOL)
             except Exception as exc:
                 log.error("strategy.process_bar error: %s", exc, exc_info=True)
                 marketdata.ib.sleep(POLL_INTERVAL_S)

@@ -46,7 +46,7 @@ def load_ltf(symbol: str, ltf: str = "1h") -> pd.DataFrame:
     df = pd.read_csv(path, index_col=0, parse_dates=True)
     df.index = pd.to_datetime(df.index, utc=True)
     df = df.sort_index()
-    print(f"Loaded {tf} bars: {len(df):,}  [{df.index[0]} → {df.index[-1]}]")
+    print(f"Loaded {tf} bars: {len(df):,}  [{df.index[0]} -> {df.index[-1]}]")
     return df
 
 
@@ -56,7 +56,7 @@ def load_h1(symbol: str) -> pd.DataFrame:
 
 
 def build_htf_from_ltf(ltf_df: pd.DataFrame, htf: str = "4h") -> pd.DataFrame:
-    """Resample LTF bars → HTF, no-lookahead."""
+    """Resample LTF bars -> HTF, no-lookahead."""
     htf_df = ltf_df.resample(htf, closed="left", label="left").agg({
         "open_bid":  "first",
         "high_bid":  "max",
@@ -123,7 +123,7 @@ def build_report_md(symbol: str, metrics: dict, trades_df: pd.DataFrame,
     lines = [
         f"# Index Backtest Report: {symbol.upper()}",
         f"",
-        f"**Period:** {start} → {end}",
+        f"**Period:** {start} -> {end}",
         f"**LTF:** {_tf_label(ltf)}  |  **HTF:** {_tf_label(htf)}",
         f"**Strategy:** BOS + Pullback (trend_following_v1)",
         f"",
@@ -228,7 +228,7 @@ def run_backtest(
     display_start = str(ltf_df.index[0].date())
     display_end   = str(ltf_df.index[-1].date())
 
-    print(f"\nRunning backtest: {symbol.upper()}  {display_start} → {display_end}")
+    print(f"\nRunning backtest: {symbol.upper()}  {display_start} -> {display_end}")
     print(f"LTF ({_tf_label(ltf)}) bars: {len(ltf_df):,} | HTF ({_tf_label(htf)}) bars: {len(htf_df):,}")
     print(f"Params: {params}\n")
 
@@ -247,7 +247,7 @@ def run_backtest(
     r_dd = _calc_r_drawdown(trades_df)
 
     print(f"\n{'='*60}")
-    print(f"  RESULTS: {symbol.upper()}  {display_start} → {display_end}")
+    print(f"  RESULTS: {symbol.upper()}  {display_start} -> {display_end}")
     print(f"{'='*60}")
     print(f"  Trades:           {metrics.get('trades_count', 0)}")
     print(f"  Win rate:         {win_rate_pct:.1f}%")
@@ -266,7 +266,7 @@ def run_backtest(
     trades_path = REPORTS_DIR / f"IDX_{sym_upper}_{tf_tag}_BACKTEST_TRADES.csv"
     if len(trades_df):
         trades_df.to_csv(trades_path, index=False)
-        print(f"Trades saved → {trades_path}")
+        print(f"Trades saved -> {trades_path}")
     else:
         print("No trades to save.")
 
@@ -275,7 +275,7 @@ def run_backtest(
                                 ltf=ltf, htf=htf)
     report_path = REPORTS_DIR / f"IDX_{sym_upper}_{tf_tag}_BACKTEST_REPORT.md"
     report_path.write_text(report_md, encoding="utf-8")
-    print(f"Report saved → {report_path}")
+    print(f"Report saved -> {report_path}")
 
     return trades_df, metrics
 

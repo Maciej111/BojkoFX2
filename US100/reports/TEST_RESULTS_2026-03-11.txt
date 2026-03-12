@@ -1,0 +1,320 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- C:\dev\projects\BojkoFX2\US100\venv_test\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\dev\projects\BojkoFX2\US100
+collecting ... collected 210 items
+
+tests/test_bos_pullback_setup.py::test_setup_creation_and_fill PASSED    [  0%]
+tests/test_execution_logic.py::TestExecutionEngine::test_long_limit_entry PASSED [  0%]
+tests/test_execution_logic.py::TestExecutionEngine::test_long_sl_hit PASSED [  1%]
+tests/test_flag_contraction_setup.py::test_detect_long_flag PASSED       [  1%]
+tests/test_flag_contraction_setup.py::test_detect_short_flag PASSED      [  2%]
+tests/test_flag_contraction_setup.py::test_rejects_weak_impulse PASSED   [  2%]
+tests/test_flag_contraction_setup.py::test_rejects_wide_contraction PASSED [  3%]
+tests/test_flag_contraction_setup.py::test_rejects_no_breakout PASSED    [  3%]
+tests/test_flag_contraction_setup.py::test_neutral_bias_blocks_long_flag PASSED [  4%]
+tests/test_flag_contraction_setup.py::test_neutral_bias_blocks_short_flag PASSED [  4%]
+tests/test_flag_contraction_setup.py::test_long_price_ordering PASSED    [  5%]
+tests/test_flag_contraction_setup.py::test_short_price_ordering PASSED   [  5%]
+tests/test_flag_contraction_setup.py::test_setup_type_field_in_trade PASSED [  6%]
+tests/test_flag_contraction_setup.py::test_backwards_compat_flag_disabled PASSED [  6%]
+tests/test_htf_bias.py::TestBullishBias::test_higher_highs_and_higher_lows_returns_bull PASSED [  7%]
+tests/test_htf_bias.py::TestBullishBias::test_close_above_last_pivot_alone_is_not_sufficient PASSED [  7%]
+tests/test_htf_bias.py::TestBullishBias::test_anti_lookahead_bull PASSED [  8%]
+tests/test_htf_bias.py::TestBullishBias::test_full_sequence_at_last_bar PASSED [  8%]
+tests/test_htf_bias.py::TestBearishBias::test_lower_lows_and_lower_highs_returns_bear PASSED [  9%]
+tests/test_htf_bias.py::TestBearishBias::test_close_below_last_pivot_alone_is_not_sufficient PASSED [  9%]
+tests/test_htf_bias.py::TestBearishBias::test_full_sequence_at_last_bar PASSED [ 10%]
+tests/test_htf_bias.py::TestNeutralBias::test_not_enough_htf_bars_returns_neutral PASSED [ 10%]
+tests/test_htf_bias.py::TestNeutralBias::test_choppy_structure_returns_neutral PASSED [ 10%]
+tests/test_htf_bias.py::TestNeutralBias::test_sideways_range_returns_neutral PASSED [ 11%]
+tests/test_htf_bias.py::TestNeutralBias::test_before_any_confirmed_pivot PASSED [ 11%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[12-False] PASSED [ 12%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[13-True] PASSED [ 12%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[16-True] PASSED [ 13%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[20-True] PASSED [ 13%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[21-False] PASSED [ 14%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[0-False] PASSED [ 14%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_boundary[23-False] PASSED [ 15%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_filter_blocks_outside PASSED [ 15%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_session_filter_allows_inside PASSED [ 16%]
+tests/test_idx_session_and_bos_filters.py::TestIsAllowedSession::test_same_start_end_hour PASSED [ 16%]
+tests/test_idx_session_and_bos_filters.py::TestSessionFilterIntegration::test_filters_off_produces_trades PASSED [ 17%]
+tests/test_idx_session_and_bos_filters.py::TestSessionFilterIntegration::test_session_filter_reduces_or_equals_trades PASSED [ 17%]
+tests/test_idx_session_and_bos_filters.py::TestSessionFilterIntegration::test_session_filter_inside_window_matches_unfiltered PASSED [ 18%]
+tests/test_idx_session_and_bos_filters.py::TestSessionFilterIntegration::test_session_filter_does_not_affect_open_trade_exits PASSED [ 18%]
+tests/test_idx_session_and_bos_filters.py::TestBOSMomentumFilterIntegration::test_momentum_filter_off_equals_baseline PASSED [ 19%]
+tests/test_idx_session_and_bos_filters.py::TestBOSMomentumFilterIntegration::test_large_impulse_passes_filter PASSED [ 19%]
+tests/test_idx_session_and_bos_filters.py::TestBOSMomentumFilterIntegration::test_strict_range_filter_reduces_trades PASSED [ 20%]
+tests/test_idx_session_and_bos_filters.py::TestBOSMomentumFilterIntegration::test_strict_body_ratio_reduces_trades PASSED [ 20%]
+tests/test_idx_session_and_bos_filters.py::TestBOSMomentumFilterIntegration::test_zero_range_bar_handled_safely PASSED [ 20%]
+tests/test_idx_session_and_bos_filters.py::TestCombinedFilters::test_valid_bos_outside_session_rejected PASSED [ 21%]
+tests/test_idx_session_and_bos_filters.py::TestCombinedFilters::test_valid_bos_inside_session_accepted PASSED [ 21%]
+tests/test_idx_session_and_bos_filters.py::TestBackwardsCompatibility::test_filters_disabled_identical_to_baseline PASSED [ 22%]
+tests/test_live_backtest_parity.py::TestATRParity::test_backtest_atr_uses_wilder_ewm_not_rolling_mean PASSED [ 22%]
+tests/test_live_backtest_parity.py::TestATRParity::test_backtest_atr_matches_shared_atr PASSED [ 23%]
+tests/test_live_backtest_parity.py::TestATRParity::test_atr_spike_response_differs_between_ewm_and_rolling PASSED [ 23%]
+tests/test_live_backtest_parity.py::TestPivotNoLookahead::test_precompute_pivots_no_lookahead PASSED [ 24%]
+tests/test_live_backtest_parity.py::TestPivotNoLookahead::test_backtest_check_bos_uses_scalar_pivots_not_series PASSED [ 24%]
+tests/test_live_backtest_parity.py::TestPivotNoLookahead::test_run_trend_backtest_does_not_call_detect_pivots_on_full_ltf PASSED [ 25%]
+tests/test_live_backtest_parity.py::TestPivotNoLookahead::test_backtest_bos_not_triggered_before_pivot_confirmed PASSED [ 25%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_is_allowed_session_boundary[13-13-20-True] PASSED [ 26%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_is_allowed_session_boundary[16-13-20-True] PASSED [ 26%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_is_allowed_session_boundary[20-13-20-True] PASSED [ 27%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_is_allowed_session_boundary[21-13-20-False] PASSED [ 27%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_is_allowed_session_boundary[12-13-20-False] PASSED [ 28%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_session_end_boundary_is_inclusive PASSED [ 28%]
+tests/test_live_backtest_parity.py::TestSessionFilterParity::test_runner_comment_confirms_inclusive_fix PASSED [ 29%]
+tests/test_live_backtest_parity.py::TestSymbolStateParity::test_process_bar_accepts_symbol_kwarg PASSED [ 29%]
+tests/test_live_backtest_parity.py::TestSymbolStateParity::test_runner_passes_symbol_to_process_bar PASSED [ 30%]
+tests/test_live_backtest_parity.py::TestSymbolStateParity::test_process_bar_state_stored_under_passed_symbol PASSED [ 30%]
+tests/test_live_backtest_parity.py::TestEquityCurveParity::test_equity_curve_is_r_compounded PASSED [ 30%]
+tests/test_live_backtest_parity.py::TestEquityCurveParity::test_max_dd_pct_is_sane_for_typical_strategy PASSED [ 31%]
+tests/test_live_strategy_bos.py::TestBosDetection::test_no_signal_before_warmup PASSED [ 31%]
+tests/test_live_strategy_bos.py::TestBosDetection::test_no_signal_on_pivot_formation_bar FAILED [ 32%]
+tests/test_live_strategy_bos.py::TestBosDetection::test_bos_long_requires_close_above_pivot FAILED [ 32%]
+tests/test_live_strategy_bos.py::TestBosDetection::test_bos_short_requires_close_below_pivot FAILED [ 33%]
+tests/test_live_strategy_bos.py::TestHtfBiasGating::test_long_blocked_when_htf_is_neutral PASSED [ 33%]
+tests/test_live_strategy_bos.py::TestHtfBiasGating::test_long_blocked_when_htf_is_bear PASSED [ 34%]
+tests/test_live_strategy_bos.py::TestHtfBiasGating::test_short_blocked_when_htf_is_bull PASSED [ 34%]
+tests/test_live_strategy_bos.py::TestIntentSanity::test_long_intent_sl_tp_ordering PASSED [ 35%]
+tests/test_live_strategy_bos.py::TestIntentSanity::test_short_intent_sl_tp_ordering PASSED [ 35%]
+tests/test_live_strategy_bos.py::TestIntentSanity::test_rr_ratio_honoured FAILED [ 36%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_add_R_column_long PASSED [ 36%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_add_R_column_short PASSED [ 37%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_expectancy_R PASSED [ 37%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_max_drawdown PASSED [ 38%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_max_losing_streak PASSED [ 38%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_max_losing_streak_no_losses PASSED [ 39%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_profit_factor PASSED [ 39%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_profit_factor_no_losses PASSED [ 40%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_profit_factor_no_wins PASSED [ 40%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_segment_metrics FAILED [ 40%]
+tests/test_metrics_segments.py::TestMetricsSegments::test_segment_metrics_no_column PASSED [ 41%]
+tests/test_missed_setup_expiry.py::test_setup_expiry PASSED              [ 41%]
+tests/test_no_same_bar_entry.py::TestNoSameBarEntry::test_same_bar_entry_prevention_logic PASSED [ 42%]
+tests/test_no_same_bar_entry.py::TestNoSameBarEntry::test_trade_contains_zone_info PASSED [ 42%]
+tests/test_no_same_bar_entry.py::TestNoSameBarEntry::test_zone_created_at_tracking PASSED [ 43%]
+tests/test_partial_tp_logic.py::TestPartialTpBackwardsCompat::test_partial_tp_off_produces_trades PASSED [ 43%]
+tests/test_partial_tp_logic.py::TestPartialTpBackwardsCompat::test_partial_tp_off_full_tp_r_equals_risk_reward PASSED [ 44%]
+tests/test_partial_tp_logic.py::TestPartialTpBackwardsCompat::test_partial_tp_off_sl_r_equals_minus_one SKIPPED [ 44%]
+tests/test_partial_tp_logic.py::TestPartialTpBackwardsCompat::test_partial_tp_field_false_when_disabled PASSED [ 45%]
+tests/test_partial_tp_logic.py::TestPartialTpEnabled::test_tp_trades_have_r_approx_1_5 PASSED [ 45%]
+tests/test_partial_tp_logic.py::TestPartialTpEnabled::test_sl_trades_r_unchanged_at_minus_one SKIPPED [ 46%]
+tests/test_partial_tp_logic.py::TestPartialTpEnabled::test_partial_then_be_stop_r_equals_half SKIPPED [ 46%]
+tests/test_partial_tp_logic.py::TestPartialTpEnabled::test_partial_hit_records_exit_price_and_time PASSED [ 47%]
+tests/test_partial_tp_logic.py::TestPartialTpEnabled::test_partial_tp_max_r_less_than_full_tp PASSED [ 47%]
+tests/test_partial_tp_logic.py::TestPartialTpColumnPresence::test_new_columns_present[False] PASSED [ 48%]
+tests/test_partial_tp_logic.py::TestPartialTpColumnPresence::test_new_columns_present[True] PASSED [ 48%]
+tests/test_partial_tp_logic.py::TestPartialTpColumnPresence::test_produce_trades_sanity PASSED [ 49%]
+tests/test_pivots_no_lookahead.py::test_pivot_confirmation_delay PASSED  [ 49%]
+tests/test_restart_state_restore.py::TestTrailStatePersistence::test_load_missing_returns_none FAILED [ 50%]
+tests/test_restart_state_restore.py::TestTrailStatePersistence::test_save_and_load_roundtrip FAILED [ 50%]
+tests/test_restart_state_restore.py::TestTrailStatePersistence::test_overwrite_updates_state FAILED [ 50%]
+tests/test_restart_state_restore.py::TestTrailStatePersistence::test_unarmed_position_returns_none FAILED [ 51%]
+tests/test_restart_state_restore.py::TestRestorePositionsFromIBKR::test_trail_state_restored_after_restart FAILED [ 51%]
+tests/test_restart_state_restore.py::TestRestorePositionsFromIBKR::test_no_trail_state_leaves_defaults FAILED [ 52%]
+tests/test_state_store.py::TestMigration::test_tables_created PASSED     [ 52%]
+tests/test_state_store.py::TestMigration::test_schema_version_is_current PASSED [ 53%]
+tests/test_state_store.py::TestMigration::test_migrate_idempotent PASSED [ 53%]
+tests/test_state_store.py::TestStrategyState::test_load_missing_returns_none PASSED [ 54%]
+tests/test_state_store.py::TestStrategyState::test_save_and_load PASSED  [ 54%]
+tests/test_state_store.py::TestStrategyState::test_upsert_overwrites PASSED [ 55%]
+tests/test_state_store.py::TestStrategyState::test_load_all PASSED       [ 55%]
+tests/test_state_store.py::TestStrategyState::test_null_pivots_round_trip PASSED [ 56%]
+tests/test_state_store.py::TestOrders::test_insert_new PASSED            [ 56%]
+tests/test_state_store.py::TestOrders::test_intent_id_unique_blocks_duplicate PASSED [ 57%]
+tests/test_state_store.py::TestOrders::test_status_upgrades_forward PASSED [ 57%]
+tests/test_state_store.py::TestOrders::test_status_does_not_downgrade PASSED [ 58%]
+tests/test_state_store.py::TestOrders::test_update_order_status PASSED   [ 58%]
+tests/test_state_store.py::TestOrders::test_get_orders_by_status PASSED  [ 59%]
+tests/test_state_store.py::TestOrders::test_multiple_symbols PASSED      [ 59%]
+tests/test_state_store.py::TestRiskState::test_save_and_load PASSED      [ 60%]
+tests/test_state_store.py::TestRiskState::test_overwrite PASSED          [ 60%]
+tests/test_state_store.py::TestEvents::test_append_and_read PASSED       [ 60%]
+tests/test_state_store.py::TestEvents::test_events_ordered_desc PASSED   [ 61%]
+tests/test_state_store.py::TestMakeIntentId::test_deterministic PASSED   [ 61%]
+tests/test_state_store.py::TestMakeIntentId::test_different_side PASSED  [ 62%]
+tests/test_state_store.py::TestMakeIntentId::test_different_bar_ts PASSED [ 62%]
+tests/test_state_store.py::TestMakeIntentId::test_sha1_length PASSED     [ 63%]
+tests/test_state_store.py::TestMergeIbkrState::test_inserts_unknown PASSED [ 63%]
+tests/test_state_store.py::TestMergeIbkrState::test_expires_db_pending_not_on_ibkr PASSED [ 64%]
+tests/test_state_store.py::TestMergeIbkrState::test_updates_existing PASSED [ 64%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_both_engines_produce_signals_on_bullish_data FAILED [ 65%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_both_engines_produce_signals_on_bearish_data FAILED [ 65%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_live_signals_are_all_longs_on_bull_market PASSED [ 66%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_live_signals_are_all_shorts_on_bear_market PASSED [ 66%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_live_long_signals_have_valid_price_ordering PASSED [ 67%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_live_short_signals_have_valid_price_ordering PASSED [ 67%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_rr_ratio_matches_config FAILED [ 68%]
+tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_backtest_trades_direction_matches_live_direction PASSED [ 68%]
+tests/test_strategy_end_to_end.py::TestNoLookahead::test_no_signals_in_first_20_bars PASSED [ 69%]
+tests/test_tick_to_bars.py::TestTickToBars::test_resample PASSED         [ 69%]
+tests/test_tick_to_bars.py::TestTickToBars::test_resample_alt_columns PASSED [ 70%]
+tests_backtests/test_engine_fill_logic.py::TestTryFill::test_long_fill_exact_low PASSED [ 70%]
+tests_backtests/test_engine_fill_logic.py::TestTryFill::test_long_fill_within_range PASSED [ 70%]
+tests_backtests/test_engine_fill_logic.py::TestTryFill::test_long_no_fill_above_range PASSED [ 71%]
+tests_backtests/test_engine_fill_logic.py::TestTryFill::test_long_no_fill_below_range PASSED [ 71%]
+tests_backtests/test_engine_fill_logic.py::TestTryFill::test_short_fill_within_range PASSED [ 72%]
+tests_backtests/test_engine_fill_logic.py::TestTryFill::test_short_no_fill_below PASSED [ 72%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_long_tp_hit PASSED [ 73%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_long_sl_hit PASSED [ 73%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_long_both_hit_conservative_sl_wins PASSED [ 74%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_long_both_hit_optimistic_tp_wins PASSED [ 74%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_long_no_exit PASSED [ 75%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_short_tp_hit PASSED [ 75%]
+tests_backtests/test_engine_fill_logic.py::TestTryExit::test_short_sl_hit PASSED [ 76%]
+tests_backtests/test_engine_fill_logic.py::TestCalcUnits::test_fixed_units PASSED [ 76%]
+tests_backtests/test_engine_fill_logic.py::TestCalcUnits::test_risk_first_basic PASSED [ 77%]
+tests_backtests/test_engine_fill_logic.py::TestCalcUnits::test_risk_first_zero_stop PASSED [ 77%]
+tests_backtests/test_engine_fill_logic.py::TestCalcUnits::test_unknown_mode_fallback PASSED [ 78%]
+tests_backtests/test_engine_fill_logic.py::TestInSession::test_within_session PASSED [ 78%]
+tests_backtests/test_engine_fill_logic.py::TestInSession::test_outside_session PASSED [ 79%]
+tests_backtests/test_engine_fill_logic.py::TestInSession::test_none_session PASSED [ 79%]
+tests_backtests/test_engine_fill_logic.py::TestInSession::test_allday_session PASSED [ 80%]
+tests_backtests/test_engine_fill_logic.py::TestInSession::test_boundary_start PASSED [ 80%]
+tests_backtests/test_engine_fill_logic.py::TestInSession::test_boundary_end PASSED [ 80%]
+tests_backtests/test_engine_fill_logic.py::TestPortfolioSimulatorIntegration::test_tp_trade_closed PASSED [ 81%]
+tests_backtests/test_engine_fill_logic.py::TestPortfolioSimulatorIntegration::test_portfolio_max_positions_respected PASSED [ 81%]
+tests_backtests/test_indicators_adx_atr.py::TestATR::test_length_matches PASSED [ 82%]
+tests_backtests/test_indicators_adx_atr.py::TestATR::test_no_nan_after_warmup PASSED [ 82%]
+tests_backtests/test_indicators_adx_atr.py::TestATR::test_values_positive PASSED [ 83%]
+tests_backtests/test_indicators_adx_atr.py::TestATR::test_atr_increases_with_volatility PASSED [ 83%]
+tests_backtests/test_indicators_adx_atr.py::TestADX::test_columns_present PASSED [ 84%]
+tests_backtests/test_indicators_adx_atr.py::TestADX::test_length_matches PASSED [ 84%]
+tests_backtests/test_indicators_adx_atr.py::TestADX::test_adx_range_0_100 PASSED [ 85%]
+tests_backtests/test_indicators_adx_atr.py::TestADX::test_adx_positive PASSED [ 85%]
+tests_backtests/test_indicators_adx_atr.py::TestADX::test_small_df_no_crash PASSED [ 86%]
+tests_backtests/test_indicators_adx_atr.py::TestATRPercentile::test_length_matches PASSED [ 86%]
+tests_backtests/test_indicators_adx_atr.py::TestATRPercentile::test_range_0_100 PASSED [ 87%]
+tests_backtests/test_indicators_adx_atr.py::TestATRPercentile::test_high_atr_high_pct PASSED [ 87%]
+tests_backtests/test_indicators_adx_atr.py::TestADXSlope::test_slope_type_bool_series PASSED [ 88%]
+tests_backtests/test_indicators_adx_atr.py::TestADXSlope::test_slope_length PASSED [ 88%]
+tests_backtests/test_indicators_adx_atr.py::TestAdaptiveRR::test_adx_map_v1_thresholds PASSED [ 89%]
+tests_backtests/test_indicators_adx_atr.py::TestAdaptiveRR::test_adx_map_v2_thresholds PASSED [ 89%]
+tests_backtests/test_indicators_adx_atr.py::TestAdaptiveRR::test_unknown_mode_fallback PASSED [ 90%]
+tests_backtests/test_indicators_adx_atr.py::TestAdaptiveRR::test_atr_pct_map PASSED [ 90%]
+tests_backtests/test_indicators_adx_atr.py::TestAdaptiveRR::test_atr_pct_boundary PASSED [ 90%]
+tests_backtests/test_indicators_adx_atr.py::TestComputeAdxHelper::test_returns_series PASSED [ 91%]
+tests_backtests/test_indicators_adx_atr.py::TestComputeAdxHelper::test_length_matches PASSED [ 91%]
+tests_backtests/test_indicators_adx_atr.py::TestComputeAdxHelper::test_no_nan_after_warmup PASSED [ 92%]
+tests_backtests/test_indicators_adx_atr.py::TestComputeAdxHelper::test_range_0_100 PASSED [ 92%]
+tests_backtests/test_indicators_adx_atr.py::TestComputeAdxHelper::test_deterministic PASSED [ 93%]
+tests_backtests/test_indicators_adx_atr.py::TestADXSlopeSMA::test_returns_bool_series PASSED [ 93%]
+tests_backtests/test_indicators_adx_atr.py::TestADXSlopeSMA::test_length_matches PASSED [ 94%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildH4::test_h4_has_fewer_bars_than_h1 PASSED [ 94%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildH4::test_h4_has_adx_column PASSED [ 95%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildH4::test_h4_adx_no_nan_after_warmup PASSED [ 95%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildH4::test_h4_adx_range PASSED [ 96%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildH4::test_h4_has_rising_columns PASSED [ 96%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildH4::test_h4_deterministic PASSED [ 97%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildD1::test_d1_has_adx_rising_columns PASSED [ 97%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildD1::test_d1_fewer_bars PASSED [ 98%]
+tests_backtests/test_indicators_adx_atr.py::TestBuildD1::test_d1_deterministic PASSED [ 98%]
+tests_backtests/test_indicators_adx_atr.py::TestNoLookaheadADX::test_d1_adx_not_from_future PASSED [ 99%]
+tests_backtests/test_indicators_adx_atr.py::TestNoLookaheadADX::test_h4_adx_not_from_future PASSED [ 99%]
+tests_backtests/test_indicators_adx_atr.py::TestNoLookaheadADX::test_h4_rising_flags_correct PASSED [100%]
+
+================================== FAILURES ===================================
+___________ TestBosDetection.test_no_signal_on_pivot_formation_bar ____________
+tests\test_live_strategy_bos.py:123: in test_no_signal_on_pivot_formation_bar
+    cfg = _default_config(pivot_lookback_ltf=2, confirmation_bars=1)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_live_strategy_bos.py:51: in _default_config
+    return StrategyConfig(
+E   TypeError: bojkofx_shared.core.config.StrategyConfig() got multiple values for keyword argument 'pivot_lookback_ltf'
+__________ TestBosDetection.test_bos_long_requires_close_above_pivot __________
+tests\test_live_strategy_bos.py:143: in test_bos_long_requires_close_above_pivot
+    cfg = _default_config(pivot_lookback_ltf=3, confirmation_bars=1)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_live_strategy_bos.py:51: in _default_config
+    return StrategyConfig(
+E   TypeError: bojkofx_shared.core.config.StrategyConfig() got multiple values for keyword argument 'pivot_lookback_ltf'
+_________ TestBosDetection.test_bos_short_requires_close_below_pivot __________
+tests\test_live_strategy_bos.py:165: in test_bos_short_requires_close_below_pivot
+    cfg = _default_config(pivot_lookback_ltf=3, confirmation_bars=1)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_live_strategy_bos.py:51: in _default_config
+    return StrategyConfig(
+E   TypeError: bojkofx_shared.core.config.StrategyConfig() got multiple values for keyword argument 'pivot_lookback_ltf'
+___________________ TestIntentSanity.test_rr_ratio_honoured ___________________
+tests\test_live_strategy_bos.py:265: in test_rr_ratio_honoured
+    cfg = _default_config(risk_reward=rr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_live_strategy_bos.py:51: in _default_config
+    return StrategyConfig(
+E   TypeError: bojkofx_shared.core.config.StrategyConfig() got multiple values for keyword argument 'risk_reward'
+__________________ TestMetricsSegments.test_segment_metrics ___________________
+..\..\BojkoFx\tests\test_metrics_segments.py:158: in test_segment_metrics
+    self.assertIn('TOUCH_1', segments)
+E   AssertionError: 'TOUCH_1' not found in {'ALL': {'trades_count': 6, 'win_rate': np.float64(66.66666666666666), 'expectancy_R': np.float64(0.49999999999998845), 'avg_R': np.float64(0.49999999999998845), 'median_R': np.float64(0.9999999999999769), 'profit_factor': np.float64(2.5), 'total_pnl': np.int64(1500), 'max_dd_dollars': np.float64(500.0), 'max_dd_percent': np.float64(4.761904761904762), 'max_losing_streak': 1}, '1': {'trades_count': 3, 'win_rate': np.float64(66.66666666666666), 'expectancy_R': np.float64(0.33333333333332565), 'avg_R': np.float64(0.33333333333332565), 'median_R': np.float64(0.9999999999999769), 'profit_factor': np.float64(2.0), 'total_pnl': np.int64(500), 'max_dd_dollars': np.float64(500.0), 'max_dd_percent': np.float64(4.761904761904762), 'max_losing_streak': 1}, '2': {'trades_count': 3, 'win_rate': np.float64(66.66666666666666), 'expectancy_R': np.float64(0.6666666666666513), 'avg_R': np.float64(0.6666666666666513), 'median_R': np.float64(0.9999999999999769), 'profit_factor': np.float64(3.0), 'total_pnl': np.int64(1000), 'max_dd_dollars': np.float64(500.0), 'max_dd_percent': np.float64(4.3478260869565215), 'max_losing_streak': 1}}
+__________ TestTrailStatePersistence.test_load_missing_returns_none ___________
+tests\test_restart_state_restore.py:90: in test_load_missing_returns_none
+    result = store.load_trail_state(parent_id=99999)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\shared\bojkofx_shared\core\state_store.py:442: in load_trail_state
+    cur = self._conn.execute(
+E   sqlite3.OperationalError: no such table: orders
+___________ TestTrailStatePersistence.test_save_and_load_roundtrip ____________
+tests\test_restart_state_restore.py:95: in test_save_and_load_roundtrip
+    _minimal_order_row(store, parent_id=1001, symbol="EURUSD",
+tests\test_restart_state_restore.py:66: in _minimal_order_row
+    rec = DBOrderRecord(
+E   TypeError: DBOrderRecord.__init__() got an unexpected keyword argument 'intent'. Did you mean 'intent_id'?
+___________ TestTrailStatePersistence.test_overwrite_updates_state ____________
+tests\test_restart_state_restore.py:114: in test_overwrite_updates_state
+    _minimal_order_row(store, parent_id=1002, symbol="USDJPY",
+tests\test_restart_state_restore.py:66: in _minimal_order_row
+    rec = DBOrderRecord(
+E   TypeError: DBOrderRecord.__init__() got an unexpected keyword argument 'intent'. Did you mean 'intent_id'?
+________ TestTrailStatePersistence.test_unarmed_position_returns_none _________
+tests\test_restart_state_restore.py:129: in test_unarmed_position_returns_none
+    _minimal_order_row(store, parent_id=1003, symbol="GBPUSD",
+tests\test_restart_state_restore.py:66: in _minimal_order_row
+    rec = DBOrderRecord(
+E   TypeError: DBOrderRecord.__init__() got an unexpected keyword argument 'intent'. Did you mean 'intent_id'?
+____ TestRestorePositionsFromIBKR.test_trail_state_restored_after_restart _____
+tests\test_restart_state_restore.py:313: in test_trail_state_restored_after_restart
+    self._seed_db(store, parent_id=parent_id, tp_id=tp_id, sl_id=sl_id, symbol=symbol)
+tests\test_restart_state_restore.py:282: in _seed_db
+    rec = DBOrderRecord(
+E   TypeError: DBOrderRecord.__init__() got an unexpected keyword argument 'intent'. Did you mean 'intent_id'?
+______ TestRestorePositionsFromIBKR.test_no_trail_state_leaves_defaults _______
+tests\test_restart_state_restore.py:372: in test_no_trail_state_leaves_defaults
+    rec = DBOrderRecord(
+E   TypeError: DBOrderRecord.__init__() got an unexpected keyword argument 'intent'. Did you mean 'intent_id'?
+_ TestEndToEndSignalAlignment.test_both_engines_produce_signals_on_bullish_data _
+tests\test_strategy_end_to_end.py:188: in test_both_engines_produce_signals_on_bullish_data
+    assert len(live_sigs)  > 0, "Live strategy found no signals on bullish data"
+E   AssertionError: Live strategy found no signals on bullish data
+E   assert 0 > 0
+E    +  where 0 = len([])
+_ TestEndToEndSignalAlignment.test_both_engines_produce_signals_on_bearish_data _
+tests\test_strategy_end_to_end.py:201: in test_both_engines_produce_signals_on_bearish_data
+    assert len(bt_signals) > 0, "Backtest found no trades on bearish data"
+E   AssertionError: Backtest found no trades on bearish data
+E   assert 0 > 0
+E    +  where 0 = len([])
+__________ TestEndToEndSignalAlignment.test_rr_ratio_matches_config ___________
+tests\test_strategy_end_to_end.py:261: in test_rr_ratio_matches_config
+    cfg = self._shared_cfg(risk_reward=rr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_strategy_end_to_end.py:167: in _shared_cfg
+    return StrategyConfig(
+E   TypeError: bojkofx_shared.core.config.StrategyConfig() got multiple values for keyword argument 'risk_reward'
+=========================== short test summary info ===========================
+FAILED tests/test_live_strategy_bos.py::TestBosDetection::test_no_signal_on_pivot_formation_bar
+FAILED tests/test_live_strategy_bos.py::TestBosDetection::test_bos_long_requires_close_above_pivot
+FAILED tests/test_live_strategy_bos.py::TestBosDetection::test_bos_short_requires_close_below_pivot
+FAILED tests/test_live_strategy_bos.py::TestIntentSanity::test_rr_ratio_honoured
+FAILED tests/test_metrics_segments.py::TestMetricsSegments::test_segment_metrics
+FAILED tests/test_restart_state_restore.py::TestTrailStatePersistence::test_load_missing_returns_none
+FAILED tests/test_restart_state_restore.py::TestTrailStatePersistence::test_save_and_load_roundtrip
+FAILED tests/test_restart_state_restore.py::TestTrailStatePersistence::test_overwrite_updates_state
+FAILED tests/test_restart_state_restore.py::TestTrailStatePersistence::test_unarmed_position_returns_none
+FAILED tests/test_restart_state_restore.py::TestRestorePositionsFromIBKR::test_trail_state_restored_after_restart
+FAILED tests/test_restart_state_restore.py::TestRestorePositionsFromIBKR::test_no_trail_state_leaves_defaults
+FAILED tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_both_engines_produce_signals_on_bullish_data
+FAILED tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_both_engines_produce_signals_on_bearish_data
+FAILED tests/test_strategy_end_to_end.py::TestEndToEndSignalAlignment::test_rr_ratio_matches_config
+================== 14 failed, 193 passed, 3 skipped in 9.89s ==================

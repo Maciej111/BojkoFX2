@@ -10,9 +10,12 @@ import pandas as pd
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# The shared backtest engine lives in FX/backtests/
+_FX_ROOT = Path(__file__).resolve().parents[2] / "FX"
+if str(_FX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_FX_ROOT))
 
-from backtests.engine import try_fill, try_exit, calc_units, in_session
+from backtests.engine import try_fill, try_exit, calc_units, in_session, PortfolioSimulator
 from backtests.signals_bos_pullback import TradeSetup, ClosedTrade
 
 
@@ -168,7 +171,6 @@ class TestPortfolioSimulatorIntegration:
                               "low": lows, "close": closes}, index=ts)
 
     def test_tp_trade_closed(self):
-        from backtests.engine import PortfolioSimulator
         h1 = self._make_h1(200)
         # Manual setup: entry at bar 5, TP at +0.005 (reachable by bar 50)
         setup = _make_setup(side="LONG", entry=1.1005, sl=1.0980, tp=1.1050)
@@ -189,7 +191,6 @@ class TestPortfolioSimulatorIntegration:
         assert len(trades) >= 1
 
     def test_portfolio_max_positions_respected(self):
-        from backtests.engine import PortfolioSimulator
         # 3 symbols, max_total=1 → only 1 can be open at a time
         setups = {}
         h1_all = {}

@@ -1,0 +1,57 @@
+Loading data...
+Loaded 5m bars: 525,312  [2021-01-01 00:00:00+00:00 -> 2026-03-07 23:55:00+00:00]
+Built 4h (HTF) bars: 10,944
+LTF: 525312, HTF: 10944
+
+=== BASELINE (bez filtru rezimu) ===
+  [is-] PROD htf=5 baseline: n=13(6/7) WR=46% E=+0.404 PF=1.75 DD=2.0R  IS=+0.000 OOS=+0.751
+  [is-] htf=4+rr=2.5 baseline: n=54(26/28) WR=39% E=+0.361 PF=1.59 DD=15.0R  IS=-0.462 OOS=+1.125
+
+=== KANDYDAT A: ADX threshold ===
+  [is-] A: ADX>=15: n=53(25/28) WR=40% E=+0.387 PF=1.64 DD=14.0R  IS=-0.440 OOS=+1.125
+  [is-] A: ADX>=20: n=46(25/21) WR=35% E=+0.217 PF=1.33 DD=14.0R  IS=-0.440 OOS=+1.000
+  [is-] A: ADX>=25: n=39(22/17) WR=41% E=+0.436 PF=1.74 DD=11.0R  IS=-0.364 OOS=+1.471
+  [is-] A: ADX>=30: n=30(17/13) WR=47% E=+0.633 PF=2.19 DD=9.0R  IS=-0.382 OOS=+1.962
+
+=== KANDYDAT B: ATR ratio threshold ===
+  [is-] B: ATRratio>=0.8: n=52(26/26) WR=38% E=+0.346 PF=1.56 DD=15.0R  IS=-0.462 OOS=+1.154
+  [is-] B: ATRratio>=1.0: n=48(26/22) WR=38% E=+0.312 PF=1.50 DD=15.0R  IS=-0.462 OOS=+1.227
+  [is-] B: ATRratio>=1.2: n=37(18/19) WR=41% E=+0.419 PF=1.70 DD=10.5R  IS=-0.417 OOS=+1.211
+  [is-] B: ATRratio>=1.5: n=14(6/8) WR=36% E=+0.250 PF=1.39 DD=3.0R  IS=-0.417 OOS=+0.750
+
+=== KANDYDAT C: EMA slope lookback ===
+  [is-] C: EMAslope lb=2: n=44(21/23) WR=45% E=+0.591 PF=2.08 DD=10.0R  IS=-0.333 OOS=+1.435
+  [is-] C: EMAslope lb=3: n=46(22/24) WR=43% E=+0.522 PF=1.92 DD=11.0R  IS=-0.364 OOS=+1.333
+  [is-] C: EMAslope lb=5: n=46(22/24) WR=43% E=+0.522 PF=1.92 DD=11.0R  IS=-0.364 OOS=+1.333
+
+=== ROCZNY BREAKDOWN wg najlepszych kandydatow ===
+
+  -- A: ADX>=20 --
+    2021: n=6  WR=33%  E=+0.167  DD=2.0R
+    2022: n=14  WR=14%  E=-0.500  DD=7.5R
+    2023: n=6  WR=17%  E=-0.417  DD=5.0R
+    2024: n=13  WR=69%  E=+1.423  DD=2.0R
+    2025: n=7  WR=29%  E=+0.000  DD=4.0R
+
+  -- A: ADX>=25 --
+    2021: n=6  WR=33%  E=+0.167  DD=2.0R
+    2022: n=13  WR=15%  E=-0.462  DD=6.5R
+    2023: n=4  WR=25%  E=-0.125  DD=3.0R
+    2024: n=11  WR=82%  E=+1.864  DD=1.0R
+    2025: n=5  WR=40%  E=+0.400  DD=2.0R
+
+  -- B: ATRr>=1.0 --
+    2021: n=6  WR=33%  E=+0.167  DD=2.0R
+    2022: n=14  WR=14%  E=-0.500  DD=7.5R
+    2023: n=10  WR=30%  E=+0.050  DD=6.0R
+    2024: n=10  WR=80%  E=+1.800  DD=1.0R
+    2025: n=6  WR=33%  E=+0.167  DD=3.0R
+
+  -- C: EMA lb=3 --
+    2021: n=6  WR=33%  E=+0.167  DD=2.0R
+    2022: n=12  WR=17%  E=-0.417  DD=5.5R
+    2023: n=8  WR=38%  E=+0.312  DD=4.0R
+    2024: n=14  WR=71%  E=+1.500  DD=2.0R
+    2025: n=6  WR=50%  E=+0.750  DD=1.0R
+
+Done.

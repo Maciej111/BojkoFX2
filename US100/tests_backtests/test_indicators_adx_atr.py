@@ -10,7 +10,10 @@ import pandas as pd
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# The shared backtest indicators live in FX/backtests/
+_FX_ROOT = Path(__file__).resolve().parents[2] / "FX"
+if str(_FX_ROOT) not in sys.path:
+    sys.path.insert(0, str(_FX_ROOT))
 
 from backtests.indicators import atr, adx, atr_percentile, adx_slope, rr_from_adx, rr_from_atr_pct
 
