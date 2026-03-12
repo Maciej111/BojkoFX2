@@ -251,7 +251,7 @@ class IBKRExecutionEngine:
 
     # â”€â”€ Risk checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    def purge_zombie_records(self) -> int:
+    def purge_zombie_records(self) -> Tuple[int, List[dict]]:
         """
         Remove _records entries that no longer exist on IBKR.
         Called automatically by _check_risk when the internal count hits the limit,
@@ -261,10 +261,13 @@ class IBKRExecutionEngine:
           - its parent order is gone from ib.trades() (not Pending/Submitted/PreSubmitted)
           - AND there is no open IBKR position for that symbol
 
-        Returns the number of records removed.
+        Returns (count_removed, exit_rows) where exit_rows are TRADE_CLOSED dicts
+        for any purged records that had fill_time set (i.e. were open positions).
+        Callers must log exit_rows via TradingLogger.log_exit_row() so the CSV stays
+        consistent and the dashboard does not show ghost open positions.
         """
         if self._is_dry_run():
-            return 0
+            return 0, []
         try:
             # Build set of active parent order IDs from IBKR
             active_ib_parent_ids: set = set()
@@ -300,7 +303,7 @@ class IBKRExecutionEngine:
                     "— skipping purge (possible stale connection data)",
                     len(filled_records),
                 )
-                return 0
+                return 0, []
 
             zombies: list = []
             for pid, rec in list(self._records.items()):
@@ -309,6 +312,8 @@ class IBKRExecutionEngine:
                 if not order_exists and not position_exists:
                     zombies.append(pid)
 
+            exit_rows: List[dict] = []
+            _now = datetime.now(timezone.utc).replace(tzinfo=None)
             for pid in zombies:
                 rec = self._records.pop(pid, None)
                 if rec:
@@ -319,6 +324,47 @@ class IBKRExecutionEngine:
                         pid, rec.intent.symbol,
                     )
                     print(f"[ZOMBIE_PURGE] Removed stale record: {rec.intent.symbol} pid={pid}")
+
+                    # If the record had a fill (was an open position), emit TRADE_CLOSED
+                    # so the CSV stays consistent and the dashboard has no ghost positions.
+                    if rec.fill_time is not None:
+                        intent = rec.intent
+                        exit_rows.append({
+                            "event_type":          "TRADE_CLOSED",
+                            "timestamp":           _now.isoformat(),
+                            "symbol":              intent.symbol,
+                            "signal_id":           intent.signal_id,
+                            "side":                intent.side.value,
+                            "entry_type":          intent.entry_type.value,
+                            "entry_price_intent":  intent.entry_price,
+                            "sl_price":            intent.sl_price,
+                            "tp_price":            intent.tp_price,
+                            "ttl_bars":            intent.ttl_bars,
+                            "parentOrderId":       rec.parent_id,
+                            "tpOrderId":           rec.tp_id,
+                            "slOrderId":           rec.sl_id,
+                            "order_create_time":   rec.create_time.isoformat(),
+                            "fill_time":           rec.fill_time.isoformat(),
+                            "fill_price":          rec.fill_price or "",
+                            "exit_time":           _now.isoformat(),
+                            "exit_price":          "",
+                            "exit_reason":         "PURGE_ZOMBIE",
+                            "latency_ms":          round(rec.entry_latency_ms, 1),
+                            "slippage_entry_pips": round(rec.entry_slippage_pips, 2),
+                            "slippage_exit_pips":  0,
+                            "realized_R":          "",
+                            "commissions":         round(rec.commissions, 4),
+                            "spread_at_entry":     round(rec.spread_at_entry, 6),
+                            "status_timeline":     " | ".join(
+                                t[1] for t in rec.status_timeline
+                            ) + " | PURGE_ZOMBIE",
+                            "notes":               "purge_zombie: no matching IBKR order or position",
+                        })
+                        log.info(
+                            "purge_zombie: emitting TRADE_CLOSED for filled record pid=%d %s "
+                            "(fill_price=%.5f)",
+                            pid, rec.intent.symbol, rec.fill_price or 0.0,
+                        )
 
             if zombies:
                 log.info("purge_zombie: removed %d zombie record(s); _records now=%d",
@@ -340,10 +386,10 @@ class IBKRExecutionEngine:
                         f"but NOT tracked by bot — no SL/TP management!"
                     )
 
-            return len(zombies)
+            return len(zombies), exit_rows
         except Exception as exc:
             log.error("purge_zombie_records error: %s", exc)
-            return 0
+            return 0, []
 
     def _check_risk(self, symbol: str) -> bool:
         """Return True if a new position may be opened."""
@@ -351,7 +397,15 @@ class IBKRExecutionEngine:
         if open_total >= self.risk.max_open_positions_total:
             # Before hard-blocking: purge records that no longer exist on IBKR.
             # This handles zombie records left after bot restarts or reconnects.
-            purged = self.purge_zombie_records()
+            # Exit rows for filled purged records are queued; the runner must log them.
+            purged, _exit_rows = self.purge_zombie_records()
+            if _exit_rows:
+                log.warning(
+                    "_check_risk: purge returned %d exit row(s) for filled records; "
+                    "these will NOT be auto-logged here — call purge_zombie_records() "
+                    "from the runner instead.",
+                    len(_exit_rows),
+                )
             open_total = len(self._records)
             if open_total >= self.risk.max_open_positions_total:
                 log.warning(

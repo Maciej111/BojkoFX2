@@ -56,6 +56,10 @@ def _build_report_md(symbol, metrics, trades_df, start, end, cfg) -> str:
         f"| Expectancy R | {er:+.3f} R |",
         f"| Profit Factor | {pf:.2f} |",
         f"| Max DD (R) | {r_dd:.1f} R |",
+        *([
+            f"| First Entries | {metrics.get('first_entries', n)} |",
+            f"| Pullback Entries | {metrics.get('pullback_entries', 0)} |",
+        ] if cfg.enable_pullback_entry else []),
         f"",
         f"## Strategy Parameters",
         f"",
@@ -74,6 +78,11 @@ def _build_report_md(symbol, metrics, trades_df, start, end, cfg) -> str:
         f"| SL Anchor | {cfg.sl_anchor} |",
         f"| Session Filter | {cfg.use_session_filter} ({cfg.session_start_hour_utc}-{cfg.session_end_hour_utc} UTC) |",
         f"| Max Bars In State | {cfg.max_bars_in_state} |",
+        *([
+            f"| Pullback Entry | Enabled |",
+            f"| Pullback ATR Mult | {cfg.pullback_atr_mult} |",
+            f"| Max Entries / Setup | {cfg.max_entries_per_setup} |",
+        ] if cfg.enable_pullback_entry else []),
         f"",
     ]
 
@@ -131,6 +140,15 @@ def main():
                         action="store_true",  default=False)
     parser.add_argument("--trailing-atr-mult",    type=float, default=2.0)
     parser.add_argument("--breakeven-atr-mult",   type=float, default=1.0)
+    parser.add_argument(
+        "--pullback-entry", dest="pullback_entry",
+        action="store_true", default=False,
+        help="Enable BOS+Pullback continuation entry (TREND_EXPANSION state)",
+    )
+    parser.add_argument("--pullback-atr-mult",     type=float, default=0.2,
+                        help="Pullback zone width in ATR units (default: 0.2)")
+    parser.add_argument("--max-entries-per-setup", type=int,   default=2,
+                        help="Max entries per setup when pullback enabled (default: 2)")
     args = parser.parse_args()
 
     cfg = VCLSMBConfig(
@@ -148,6 +166,9 @@ def main():
         use_trailing_stop       = args.trailing_stop,
         trailing_atr_multiplier = args.trailing_atr_mult,
         breakeven_atr_mult      = args.breakeven_atr_mult,
+        enable_pullback_entry   = args.pullback_entry,
+        pullback_atr_mult       = args.pullback_atr_mult,
+        max_entries_per_setup   = args.max_entries_per_setup,
     )
 
     print(f"Loading {args.ltf} bars for {args.symbol}...")
@@ -162,6 +183,9 @@ def main():
     er = metrics["expectancy_R"]
     wr = metrics["win_rate"]
     print(f"\nResults: n={n}  WR={wr:.1f}%  E(R)={er:+.3f}")
+    if cfg.enable_pullback_entry:
+        print(f"  First entries:    {metrics.get('first_entries', n)}")
+        print(f"  Pullback entries: {metrics.get('pullback_entries', 0)}")
 
     # ── Save outputs ──────────────────────────────────────────────────────────
     _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

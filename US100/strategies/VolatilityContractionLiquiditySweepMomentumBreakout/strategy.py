@@ -172,8 +172,19 @@ def run_vclsmb_backtest(
 
                 trades.append(active)
                 active = None
-                _reset(ctx)
-                ctx.state = State.IDLE
+
+                # Transition: go to TREND_EXPANSION if pullback entries are still allowed,
+                # otherwise reset to IDLE as before.
+                if (
+                    cfg.enable_pullback_entry
+                    and not pd.isna(ctx.breakout_level)
+                    and ctx.entries_taken < cfg.max_entries_per_setup
+                ):
+                    ctx.state = State.TREND_EXPANSION
+                    ctx.bars_in_state = 0
+                else:
+                    _reset(ctx)
+                    ctx.state = State.IDLE
             # Don't advance state machine while in position
             continue
 
@@ -263,6 +274,9 @@ def run_vclsmb_backtest(
                 sl = fill_px + risk
                 tp = fill_px - cfg.risk_reward * risk
 
+            entry_type = "pullback" if ctx.entries_taken > 0 else "first"
+            ctx.entries_taken += 1
+
             active = {
                 "entry_time":    str(next_ts),
                 "exit_time":     None,
@@ -285,6 +299,7 @@ def run_vclsmb_backtest(
                 "partial_exit_time": None,
                 "partial_exit_price": None,
                 "best_price":   fill_px,   # for trailing stop tracking
+                "entry_type":   entry_type,
             }
             ctx.state = State.IN_POSITION
             ctx.bars_in_state = 0
@@ -322,9 +337,11 @@ def run_vclsmb_backtest(
             "trades_count": 0, "expectancy_R": 0.0, "win_rate": 0.0,
             "profit_factor": 0.0, "max_dd_pct": 0.0, "max_losing_streak": 0,
             "missed_rate": 0.0, "avg_bars_to_fill": 0.0, "total_setups": 0,
+            "first_entries": 0, "pullback_entries": 0,
         }
     else:
         m = compute_metrics(trades_df, initial_balance=10000)
+        pb_count = int((trades_df.get("entry_type", pd.Series(dtype=str)) == "pullback").sum())
         metrics = {
             "trades_count":      m.get("trades_count", len(trades_df)),
             "expectancy_R":      m.get("expectancy_R", trades_df["R"].mean()),
@@ -335,6 +352,8 @@ def run_vclsmb_backtest(
             "missed_rate":       0.0,
             "avg_bars_to_fill":  0.0,
             "total_setups":      len(trades_df),
+            "first_entries":     len(trades_df) - pb_count,
+            "pullback_entries":  pb_count,
         }
 
     return trades_df, metrics

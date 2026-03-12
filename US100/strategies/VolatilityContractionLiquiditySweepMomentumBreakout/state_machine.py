@@ -7,6 +7,7 @@ States:
   SWEEP_DETECTED      — liquidity sweep fired; waiting for momentum
   MOMENTUM_CONFIRMED  — momentum breakout bar confirmed; signal ready
   IN_POSITION         — trade is open
+  TREND_EXPANSION     — watching for pullback to breakout level (continuation entry)
 
 Transitions (per bar):
   IDLE            → COMPRESSION        : is_compression()
@@ -14,8 +15,11 @@ Transitions (per bar):
   COMPRESSION     → IDLE               : timeout or compression lost
   SWEEP_DETECTED  → MOMENTUM_CONFIRMED : is_momentum_breakout_bull/bear()
   SWEEP_DETECTED  → IDLE               : timeout or opposing sweep
-  MOMENTUM_CONFIRMED → IN_POSITION     : entry bar processed (next bar)
-  IN_POSITION     → IDLE               : trade closed (TP/SL)
+  MOMENTUM_CONFIRMED → IN_POSITION     : entry bar processed (next bar)  [strategy.py]
+  IN_POSITION     → TREND_EXPANSION    : trade closed + pullback enabled  [strategy.py]
+  IN_POSITION     → IDLE               : trade closed, pullback disabled   [strategy.py]
+  TREND_EXPANSION → MOMENTUM_CONFIRMED : pullback touches breakout zone
+  TREND_EXPANSION → IDLE               : timeout / max_entries reached / new compression
 """
 from enum import Enum, auto
 from dataclasses import dataclass, field
@@ -36,6 +40,7 @@ class State(Enum):
     SWEEP_DETECTED     = auto()
     MOMENTUM_CONFIRMED = auto()
     IN_POSITION        = auto()
+    TREND_EXPANSION    = auto()  # continuation: waiting for pullback to breakout level
 
 
 @dataclass
@@ -50,18 +55,23 @@ class MachineContext:
     sweep_low:  float = float("nan")       # wick extreme of bull sweep
     sweep_high: float = float("nan")       # wick extreme of bear sweep
     momentum_bar_idx: Optional[int] = None # LTF index when momentum confirmed
+    # Pullback continuation tracking
+    breakout_level: float = float("nan")   # range_high (LONG) or range_low (SHORT) at BOS
+    entries_taken: int = 0                 # number of entries opened for this setup
 
 
 def _reset(ctx: MachineContext) -> None:
-    ctx.state         = State.IDLE
-    ctx.bars_in_state = 0
-    ctx.direction     = None
-    ctx.range_high    = float("nan")
-    ctx.range_low     = float("nan")
-    ctx.sweep_bar_idx = None
-    ctx.sweep_low     = float("nan")
-    ctx.sweep_high    = float("nan")
+    ctx.state            = State.IDLE
+    ctx.bars_in_state    = 0
+    ctx.direction        = None
+    ctx.range_high       = float("nan")
+    ctx.range_low        = float("nan")
+    ctx.sweep_bar_idx    = None
+    ctx.sweep_low        = float("nan")
+    ctx.sweep_high       = float("nan")
     ctx.momentum_bar_idx = None
+    ctx.breakout_level   = float("nan")
+    ctx.entries_taken    = 0
 
 
 def advance(ctx: MachineContext, row: pd.Series, bar_idx: int,
@@ -154,6 +164,7 @@ def advance(ctx: MachineContext, row: pd.Series, bar_idx: int,
                 ctx.state            = State.MOMENTUM_CONFIRMED
                 ctx.momentum_bar_idx = bar_idx
                 ctx.bars_in_state    = 0
+                ctx.breakout_level   = ctx.range_high  # BOS level for LONG
 
         elif ctx.direction == "SHORT":
             # Invalidated by bullish sweep
@@ -164,6 +175,41 @@ def advance(ctx: MachineContext, row: pd.Series, bar_idx: int,
                 ctx.state            = State.MOMENTUM_CONFIRMED
                 ctx.momentum_bar_idx = bar_idx
                 ctx.bars_in_state    = 0
+                ctx.breakout_level   = ctx.range_low   # BOS level for SHORT
+
+        return ctx.state
+
+    # ── TREND_EXPANSION: watching for pullback to breakout level ──────────────
+    if ctx.state == State.TREND_EXPANSION:
+        # Timeout
+        if ctx.bars_in_state > cfg.max_bars_in_state:
+            _reset(ctx)
+            return ctx.state
+
+        # Max entries reached
+        if ctx.entries_taken >= cfg.max_entries_per_setup:
+            _reset(ctx)
+            return ctx.state
+
+        # New compression starting → let a fresh setup begin from IDLE
+        if is_compression(row, cfg):
+            _reset(ctx)
+            return ctx.state
+
+        # Pullback detection
+        atr = row.get("atr", float("nan"))
+        if not pd.isna(atr) and atr > 0 and not pd.isna(ctx.breakout_level):
+            threshold = cfg.pullback_atr_mult * atr
+            if ctx.direction == "LONG":
+                if row["low_bid"] <= ctx.breakout_level + threshold:
+                    ctx.state            = State.MOMENTUM_CONFIRMED
+                    ctx.momentum_bar_idx = bar_idx
+                    ctx.bars_in_state    = 0
+            elif ctx.direction == "SHORT":
+                if row["high_bid"] >= ctx.breakout_level - threshold:
+                    ctx.state            = State.MOMENTUM_CONFIRMED
+                    ctx.momentum_bar_idx = bar_idx
+                    ctx.bars_in_state    = 0
 
         return ctx.state
 

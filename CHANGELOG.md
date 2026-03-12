@@ -14,6 +14,70 @@ Skróty sekcji: **Added** | **Changed** | **Fixed** | **Removed** | **Security**
 
 ---
 
+## [0.5.0] — 2026-03-12
+
+### Fixed (FX — dashboard)
+- **serve.py** — `TCPServer` zastąpiony `ThreadingMixIn + TCPServer`; poprzedni
+  single-threaded serwer odrzucał równoległe żądania przeglądarki, co
+  powodowało znikanie wykresów po ~1 sekundzie.
+- **app.py — `still_open` check** — `exit_time = NaT` w wierszach `TRADE_CLOSED`
+  powodowało, że zamknięte pozycje były traktowane jako otwarte; dodano
+  `fillna(timestamp)` przed porównaniem.
+- **app.py — side mapping** — `"BUY" in "LONG"` zwracało `False`; poprawiono
+  warunek na `"BUY" in side or side == "LONG"`.
+- **app.py — zero SL/TP** — wartości `0.0` normalizowane do `None` żeby
+  dashboard nie wyświetlał `0.000` zamiast `—`.
+- **app.py — `_bot_log_path`** — nieprawidłowa ścieżka do pliku logu bota;
+  dodano fallback szukający w `../logs/{service}.log`.
+- **index.html** — duplikat `const ctx` w `updateEquityChart()` powodował
+  `SyntaxError`; usunięto.
+- **index.html — `drawCandles`** — poziomy SL/TP równe `0` traktowane jako
+  prawidłowe ceny; dodano warunek `v > 0` przed aktualizacją skali.
+
+### Fixed (FX — bot / execution engine)
+- **BUG-ZOMBIE-1** `ibkr_exec.py — purge_zombie_records()`:
+  - Zmieniła sygnaturę z `int` na `Tuple[int, List[dict]]`; dla każdego
+    usuniętego rekordu z `fill_time != None` emituje wiersz `TRADE_CLOSED`
+    (caller musi go zalogować przez `TradingLogger.log_exit_row()`).
+  - Dodano **safety guard**: jeśli `ib.positions()` zwróci pustą listę,
+    ale istnieją filled records → purge pomijany (możliwy stale connection).
+  - Dodano szczegółowe logowanie stanu IBKR (`positions` + `active_order_pids`)
+    przed podjęciem decyzji o purge.
+  - Dodano **NAKED POSITION check**: po purge wykrywa symbole otwarte w IBKR
+    bez matching `_records` i emituje `log.critical`.
+- **BUG-ZOMBIE-2** `ibkr_exec.py — restore_positions_from_ibkr()` — po pętli
+  bracket dodano audit nagich pozycji (w `ib.positions()` ale bez żadnych
+  bracket orders); emituje `log.critical` i `[CRITICAL][RESTORE]`.
+- **run_paper_ibkr_gateway.py (FX + US100), run_live_idx.py (US100)**
+  — zaktualizowane call sites `purge_zombie_records()` do nowej sygnatury
+  tuple; exit rows logowane przez `logger.log_exit_row()`.
+
+### Fixed (FX — dane / CSV)
+- Ręczne patche CSV (`patch_csv_ghosts.py`): dopisano 4 wiersze `TRADE_CLOSED`
+  dla ghost FILL rows bez zamknięcia (`restored_1390/1391/1211/1831`) —
+  skutek błędu `purge_zombie` który usuwał record bez emitowania `TRADE_CLOSED`.
+
+### Fixed (FX — IBKR — orphaned orders)
+- Anulowano 4 osierocone GTC bracket orders (`1390/1391 AUDJPY`, `2190/2191
+  CADJPY`) które przeżyły wygaśnięcie parent orderów; dzięki temu nie mogły
+  otworzyć nowych niezarządzanych pozycji.
+- Root cause zdarzenia z 2026-03-11: bracket TP (order `#1211`, SELL 354
+  AUDJPY LMT GTC) wypełnił się 11h po zamknięciu parent LONG → SHORT naked
+  bez SL/TP; `purge_zombie` usunął record bez wpisu TRADE_CLOSED w CSV.
+
+### Added (FX — skrypty operacyjne)
+- `FX/scripts/emergency_close_position.py` — zamyka dowolną pozycję w IBKR
+  przez market order (`clientId=99`, obsługuje `--dry-run`).
+- `FX/scripts/cancel_orders.py` — anuluje IBKR orders po ID, obsługuje
+  `--show-all` i `--dry-run`; używa `reqAllOpenOrders()` żeby widzieć
+  zlecenia innych clientId.
+- `FX/scripts/global_cancel.py` — wysyła `reqGlobalCancel()` (awaryjne
+  czyszczenie wszystkich orders).
+- `FX/scripts/patch_csv_ghosts.py` — jednorazowy skrypt naprawczy: dopisuje
+  `TRADE_CLOSED` dla FILL rows bez zamknięcia w CSV.
+
+---
+
 ## [0.4.0] — 2026-03-10
 
 ### Fixed (US100)
@@ -91,7 +155,7 @@ Skróty sekcji: **Added** | **Changed** | **Fixed** | **Removed** | **Security**
 
 ---
 
-[Unreleased]: https://github.com/example/BojkoFX2/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/example/BojkoFX2/compare/v0.5.0...HEAD
 [0.5.0]: https://github.com/example/BojkoFX2/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/example/BojkoFX2/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/example/BojkoFX2/compare/v0.2.0...v0.3.0

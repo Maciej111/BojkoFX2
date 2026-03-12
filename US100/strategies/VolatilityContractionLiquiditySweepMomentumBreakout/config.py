@@ -65,6 +65,15 @@ class VCLSMBConfig:
     session_start_hour_utc: int = 21   # start of overnight session (UTC)
     session_end_hour_utc: int = 2      # end   of overnight session (UTC, exclusive)
 
+    # ── BOS + Pullback continuation entry (optional) ─────────────────────────
+    # After the first trade closes the machine enters TREND_EXPANSION and
+    # watches for price to retrace to the breakout level.  A second entry is
+    # opened with identical SL/TP logic.  Disabled by default so that existing
+    # behaviour is completely unchanged when not explicitly enabled.
+    enable_pullback_entry: bool = False
+    pullback_atr_mult: float = 0.2     # pullback zone width in ATR units
+    max_entries_per_setup: int = 2     # max total entries allowed per setup
+
     # ── Setup expiry ──────────────────────────────────────────────────────────
     max_bars_in_state: int = 30        # max bars to wait in any non-IDLE state
 

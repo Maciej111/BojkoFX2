@@ -324,7 +324,14 @@ def main():
                         continue
                     last_bar_count = marketdata.bar_count()
                     execution.ib = marketdata.ib
-                    purged = execution.purge_zombie_records()
+                    purged, zombie_exit_rows = execution.purge_zombie_records()
+                    for row in zombie_exit_rows:
+                        logger.log_exit_row(row)
+                        log.warning(
+                            "Post-reconnect zombie purge: emitting TRADE_CLOSED for filled "
+                            "record %s signal_id=%s (was open, now untracked)",
+                            row.get("symbol"), row.get("signal_id"),
+                        )
                     if purged:
                         log.info("Post-reconnect zombie purge: removed %d record(s)", purged)
                         print(f"[RECONNECT] Zombie purge: removed {purged} stale record(s)")
