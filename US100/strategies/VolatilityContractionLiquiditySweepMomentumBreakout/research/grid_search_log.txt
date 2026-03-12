@@ -1,0 +1,57 @@
+C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\research\run_grid_search.py:404: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  date_tag = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\research\run_grid_search.py:405: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  file_tag = datetime.utcnow().strftime("%Y-%m-%d")
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\research\run_grid_search.py", line 497, in <module>
+    main()
+    ~~~~^^
+  File "C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\research\run_grid_search.py", line 466, in main
+    from strategies.VolatilityContractionLiquiditySweepMomentumBreakout.research.plots import (
+    ...<3 lines>...
+    )
+  File "C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\research\plots.py", line 22, in <module>
+    import matplotlib
+ModuleNotFoundError: No module named 'matplotlib'
+Loading 5min bars for usatechidxusd...
+Loaded 5m bars: 525,312  [2021-01-01 00:00:00+00:00 -> 2026-03-07 23:55:00+00:00]
+Total bars loaded: 524,448
+IS  bars: 209,664   (2021-01-01 - 2022-12-31)
+OOS bars: 314,784   (2023-01-01 - 2025-12-31)
+
+Running 81 parameter combinations...
+------------------------------------------------------------
+  [ 10/81]  12%  elapsed 194.0s  | last OOS E(R)=+0.157  n=83
+  [ 20/81]  25%  elapsed 385.3s  | last OOS E(R)=+0.011  n=92
+  [ 30/81]  37%  elapsed 588.3s  | last OOS E(R)=-0.065  n=170
+  [ 40/81]  49%  elapsed 804.5s  | last OOS E(R)=+0.099  n=71
+  [ 50/81]  62%  elapsed 999.1s  | last OOS E(R)=-0.080  n=75
+  [ 60/81]  74%  elapsed 1193.7s  | last OOS E(R)=+0.075  n=106
+  [ 70/81]  86%  elapsed 1410.1s  | last OOS E(R)=+0.138  n=58
+  [ 80/81]  99%  elapsed 1630.8s  | last OOS E(R)=+0.000  n=54
+  [ 81/81]  100%  elapsed 1653.6s  | last OOS E(R)=-0.017  n=58
+
+Done in 1653.6s
+
+Saved: grid_search_results_2026-03-11.csv
+Saved: top_candidates_2026-03-11.csv
+
+============================================================
+TOP 10 CONFIGURATIONS BY OOS SCORE
+============================================================
+      sweep_atr_mult  momentum_atr_mult  momentum_body_ratio  compression_lookback  oos_trades  oos_win_rate  oos_expectancy_R  oos_profit_factor  oos_max_dd_R  oos_score
+rank                                                                                                                                                                      
+1               0.75                1.3                 0.55                    12          71         39.44            0.1831             1.3023           7.0     1.7146
+2               0.50                1.3                 0.55                    12          77         38.96            0.1688             1.2766           6.0     1.7140
+3               0.35                1.3                 0.55                    12          83         38.55            0.1566             1.2549           6.0     1.6737
+4               0.75                1.6                 0.55                    12          61         37.70            0.1311             1.2105           5.0     1.5368
+5               0.75                1.0                 0.55                    12          84         38.10            0.1429             1.2308           8.0     1.5115
+6               0.35                1.3                 0.55                    20         116         37.93            0.1379             1.2222           9.0     1.4859
+7               0.35                1.6                 0.55                    12          70         37.14            0.1143             1.1818           5.0     1.4847
+8               0.75                1.3                 0.55                    30          91         38.46            0.1538             1.2500          10.0     1.4844
+9               0.75                1.3                 0.55                    20          84         38.10            0.1429             1.2308           9.0     1.4615
+10              0.50                1.3                 0.55                    20          99         37.37            0.1212             1.1935           8.0     1.4541
+
+Generating heatmaps...

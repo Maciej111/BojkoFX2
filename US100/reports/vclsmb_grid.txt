@@ -1,0 +1,22 @@
+Loaded 5m bars: 525,312  [2021-01-01 00:00:00+00:00 -> 2026-03-07 23:55:00+00:00]
+=== VCLSMB Backtest Results (5m, no session filter) ===
+FULL 2021-2025                  n= 277  WR=  30%  E(R)=-0.112  PF=0.84  DD=40.0R
+IS   2021-2022                  n= 124  WR=  27%  E(R)=-0.177  PF=0.76  DD=26.0R
+OOS  2023-2025                  n= 153  WR=  31%  E(R)=-0.059  PF=0.91  DD=19.0R
+
+=== OOS yearly ===
+2023                            n=  64  WR=  28%  E(R)=-0.156  PF=0.78  DD=18.0R
+2024                            n=  32  WR=  31%  E(R)=-0.062  PF=0.91  DD=7.0R
+2025                            n=  57  WR=  35%  E(R)=+0.053  PF=1.08  DD=13.0R
+
+=== RR variants (full period) ===
+RR=1.5                          n= 277  WR=  37%  E(R)=-0.079  PF=0.87  DD=31.5R
+RR=2.0                          n= 277  WR=  30%  E(R)=-0.112  PF=0.84  DD=40.0R
+RR=2.5                          n= 277  WR=  26%  E(R)=-0.090  PF=0.88  DD=35.5R
+RR=3.0                          n= 277  WR=  22%  E(R)=-0.119  PF=0.85  DD=43.0R
+
+=== Compression ratio variants ===
+comp_ratio=0.5                  n= 249  WR=  29%  E(R)=-0.133  PF=0.81  DD=39.0R
+comp_ratio=0.6                  n= 277  WR=  30%  E(R)=-0.112  PF=0.84  DD=40.0R
+comp_ratio=0.7                  n= 401  WR=  30%  E(R)=-0.087  PF=0.87  DD=44.0R
+comp_ratio=0.8                  n= 835  WR=  31%  E(R)=-0.066  PF=0.90  DD=84.0R

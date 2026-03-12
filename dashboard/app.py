@@ -139,8 +139,13 @@ def _load_ibkr_csv(proj: dict) -> pd.DataFrame:
 
 
 def _bot_log_path(proj: dict) -> Path:
-    # systemd log is one level up from app/
-    return proj["base_dir"].parent / "logs" / f"{proj['service']}.log"
+    svc = f"{proj['service']}.log"
+    # Try one level up (FX_BASE_DIR = .../app)
+    p = proj["base_dir"].parent / "logs" / svc
+    if p.exists():
+        return p
+    # Try two levels up (FX_BASE_DIR = .../app/FX)
+    return proj["base_dir"].parents[1] / "logs" / svc
 
 
 def _bot_alive(proj: dict) -> bool:
@@ -309,15 +314,23 @@ def _build_sym_state(proj: dict, df: pd.DataFrame, sym: str, r_col) -> dict:
             fill_ts   = last_fill.get("fill_time") or last_fill.get("timestamp")
             still_open = True
             if not closed.empty:
-                close_col = "exit_time" if "exit_time" in closed.columns else "timestamp"
+                # Use exit_time when available; fall back to row timestamp (exit_time is NaT
+                # for cancelled/GTD-expired rows, but timestamp always has a real value).
+                if "exit_time" in closed.columns and "timestamp" in closed.columns:
+                    close_ts = closed["exit_time"].fillna(closed["timestamp"])
+                elif "exit_time" in closed.columns:
+                    close_ts = closed["exit_time"]
+                else:
+                    close_ts = closed["timestamp"]
                 if pd.notna(fill_ts):
-                    still_open = (closed[close_col] >= fill_ts).sum() == 0
+                    still_open = (close_ts >= fill_ts).sum() == 0
             if still_open:
                 side = _s(last_fill.get("side", ""))
-                pos  = "LONG" if side and "BUY" in side.upper() else "SHORT"
+                # CSV can store "LONG"/"SHORT" or "BUY"/"SELL"
+                pos  = "LONG" if side and ("BUY" in side.upper() or side.upper() == "LONG") else "SHORT"
                 pos_entry = _f(last_fill.get("fill_price") or last_fill.get("entry_price_intent"))
-                pos_sl    = _f(last_fill.get("sl_price"))
-                pos_tp    = _f(last_fill.get("tp_price"))
+                pos_sl    = _f(last_fill.get("sl_price")) or None
+                pos_tp    = _f(last_fill.get("tp_price")) or None
                 ft = last_fill.get("fill_time") or last_fill.get("timestamp")
                 pos_entry_ts = ft.isoformat() if pd.notna(ft) and hasattr(ft, "isoformat") else _s(ft)
 
@@ -335,8 +348,8 @@ def _build_sym_state(proj: dict, df: pd.DataFrame, sym: str, r_col) -> dict:
                     and (datetime.now(timezone.utc) - intent_ts) < timedelta(hours=2)):
                 pending = True
                 pos_entry = _f(last_intent.get("entry_price_intent"))
-                pos_sl    = _f(last_intent.get("sl_price"))
-                pos_tp    = _f(last_intent.get("tp_price"))
+                pos_sl    = _f(last_intent.get("sl_price")) or None
+                pos_tp    = _f(last_intent.get("tp_price")) or None
 
     return {
         "equity":                 sym_equity,

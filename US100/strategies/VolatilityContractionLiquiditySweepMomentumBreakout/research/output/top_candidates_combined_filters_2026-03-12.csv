@@ -1,0 +1,1 @@
+rank,sweep_atr_mult,momentum_atr_mult,momentum_body_ratio,compression_lookback,liquidity_level_atr_mult,volatility_percentile_threshold,is_trades,is_win_rate,is_expectancy_R,is_profit_factor,is_max_dd_R,is_total_R,oos_trades,oos_win_rate,oos_expectancy_R,oos_profit_factor,oos_max_dd_R,oos_total_R,is_score,is_viable,oos_score,oos_viable

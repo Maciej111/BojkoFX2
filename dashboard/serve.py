@@ -70,9 +70,13 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
         super().log_message(fmt, *args)
 
 
+class _ConcurrentProxy(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 if __name__ == "__main__":
-    with socketserver.TCPServer(("", PORT), ProxyHandler) as httpd:
-        httpd.allow_reuse_address = True
+    with _ConcurrentProxy(("", PORT), ProxyHandler) as httpd:
         print(f"Dashboard: http://localhost:{PORT}")
         print(f"Proxying /api/* → {VM_API}")
         print("Press Ctrl+C to stop.")

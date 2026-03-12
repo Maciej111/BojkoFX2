@@ -274,13 +274,33 @@ class IBKRExecutionEngine:
                     if pid == 0:
                         active_ib_parent_ids.add(t.order.orderId)
 
-            # Build set of symbols with open IBKR positions
+            # Build set of symbols with open IBKR positions (fetch once, reuse)
+            all_positions = self.ib.positions()
             symbols_with_position: set = set()
-            for p in self.ib.positions():
+            for p in all_positions:
                 if abs(p.position) > 0:
                     raw = (getattr(p.contract, "localSymbol", "") or
                            getattr(p.contract, "symbol", ""))
                     symbols_with_position.add(raw.replace(".", "").replace("/", "").upper())
+
+            log.info(
+                "purge_zombie: IBKR positions=%s  active_order_pids=%s  "
+                "tracked_records=%d",
+                sorted(symbols_with_position), sorted(active_ib_parent_ids),
+                len(self._records),
+            )
+
+            # SAFETY: if positions() returned nothing but we have filled records,
+            # the IBKR connection may be stale/not fully loaded — skip the purge
+            # entirely to avoid removing records for real open positions.
+            filled_records = [r for r in self._records.values() if r.fill_time is not None]
+            if not all_positions and filled_records:
+                log.warning(
+                    "purge_zombie: ib.positions() returned EMPTY but %d filled record(s) exist "
+                    "— skipping purge (possible stale connection data)",
+                    len(filled_records),
+                )
+                return 0
 
             zombies: list = []
             for pid, rec in list(self._records.items()):
@@ -303,6 +323,23 @@ class IBKRExecutionEngine:
             if zombies:
                 log.info("purge_zombie: removed %d zombie record(s); _records now=%d",
                          len(zombies), len(self._records))
+
+            # NAKED POSITION CHECK: symbols open in IBKR but not tracked by any record.
+            # This catches positions created by bracket fills whose parent record was lost.
+            tracked_symbols = {rec.intent.symbol for rec in self._records.values()}
+            for sym in symbols_with_position:
+                if sym not in tracked_symbols:
+                    log.critical(
+                        "NAKED_POSITION: %s has an open IBKR position but NO tracking record! "
+                        "Bot cannot manage SL/TP for this position. "
+                        "Immediate manual intervention required.",
+                        sym,
+                    )
+                    print(
+                        f"[CRITICAL][NAKED_POSITION] {sym} is open in IBKR "
+                        f"but NOT tracked by bot — no SL/TP management!"
+                    )
+
             return len(zombies)
         except Exception as exc:
             log.error("purge_zombie_records error: %s", exc)
@@ -910,6 +947,26 @@ class IBKRExecutionEngine:
                         )
 
                 restored += 1
+
+            # ── Naked-position audit ──────────────────────────────────────────
+            # Warn about any IBKR positions that have no bracket orders and
+            # therefore were not captured by the bracket loop above.
+            tracked_symbols_after = {r.intent.symbol for r in self._records.values()}
+            for sym, pos_info in positions.items():
+                if known_symbols and sym not in known_symbols:
+                    continue
+                if sym not in tracked_symbols_after:
+                    log.critical(
+                        "restore_positions: NAKED position — %s pos=%.2f avgCost=%.5f "
+                        "has no bracket orders in IBKR and is NOT tracked. "
+                        "Position is UNMANAGED (no SL/TP). Manual close required.",
+                        sym, pos_info.position, pos_info.avgCost,
+                    )
+                    print(
+                        f"[CRITICAL][RESTORE] {sym} naked position "
+                        f"pos={pos_info.position} avgCost={pos_info.avgCost:.5f} "
+                        f"— no bracket orders found, UNMANAGED!"
+                    )
 
         except Exception as exc:
             log.error("restore_positions_from_ibkr failed: %s", exc, exc_info=True)

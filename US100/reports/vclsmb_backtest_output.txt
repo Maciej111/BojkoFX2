@@ -1,0 +1,12 @@
+C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\run_backtest.py:156: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  date_tag = datetime.utcnow().strftime("%Y-%m-%d")
+C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\run_backtest.py:48: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+Loading 5min bars for usatechidxusd...
+Loaded 5m bars: 525,312  [2021-01-01 00:00:00+00:00 -> 2026-03-07 23:55:00+00:00]
+Filtered: 524,448 bars  [2021-01-01 -> 2025-12-31]
+Running VCLSMB backtest...
+
+Results: n=3  WR=100.0%  E(R)=+2.000
+Trades saved: C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\output\USATECHIDXUSD_VCLSMB_5min_2026-03-11_TRADES.csv
+Report saved: C:\dev\projects\BojkoFX2\US100\strategies\VolatilityContractionLiquiditySweepMomentumBreakout\report\USATECHIDXUSD_VCLSMB_5min_2026-03-11_REPORT.md

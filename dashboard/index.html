@@ -480,7 +480,6 @@ function updateEquityChart(data) {
     return dt.toLocaleDateString("en-US", { month:"short", day:"2-digit" });
   });
   const values = data.map(d => d.equity);
-  const ctx = document.getElementById("eqCanvas").getContext("2d");
   if (eqChart) { eqChart.destroy(); eqChart = null; }
   const accentRaw = cfg().accentColor === "var(--green)" ? "13,219,140" : "168,85,247";
   const lineColor  = cfg().accentColor === "var(--green)" ? "#0ddb8c" : "#a855f7";
@@ -668,7 +667,7 @@ function drawCandles(sym, bars, sd, trades) {
   let hi = -Infinity, lo = Infinity;
   bars.forEach(b => { if (b.high > hi) hi = b.high; if (b.low < lo) lo = b.low; });
   [sd.pos_entry, sd.pos_sl, sd.pos_tp].forEach(v => {
-    if (v != null) { if (v > hi) hi = v; if (v < lo) lo = v; }
+    if (v != null && v > 0) { if (v > hi) hi = v; if (v < lo) lo = v; }
   });
   const range = hi - lo || 1;
   const buf   = range * 0.05;
